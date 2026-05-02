@@ -1,0 +1,24 @@
+@import 'tailwindcss';
+
+html,
+body {
+	height: 100vh !important;
+	width: 100%;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	scroll-behavior: smooth;
+	overscroll-behavior: none;
+	user-select: none;
+	background-color: black;
+}
+
+#svelte {
+	height: 100%;
+}
+
+.app-root {
+	width: 100%;
+	height: 100%;
+}
