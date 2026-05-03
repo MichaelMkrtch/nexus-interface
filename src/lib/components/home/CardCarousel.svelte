@@ -1,46 +1,31 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+
+	import type { CarouselAPI } from '$components/ui/carousel/context';
 	import type { Game } from '$lib/features/games/types';
-	import type { CarouselAPI } from './ui/carousel/context.ts';
+
+	import * as Carousel from '$components/ui/carousel';
 
 	import Card from './Card.svelte';
-	import * as Carousel from './ui/carousel/index.ts';
 
 	interface CardCarouselProps {
 		games: Game[];
 		current: number;
-		onCurrentChange?: (index: number) => void;
 	}
 
-	let { games, current = $bindable(0), onCurrentChange }: CardCarouselProps = $props();
+	let { games, current }: CardCarouselProps = $props();
 
 	let api = $state<CarouselAPI>();
 
-	const itemCount = $derived(games.length);
-
-	function setCurrent(index: number) {
-		const next = Math.max(0, Math.min(index, itemCount - 1));
-
-		current = next;
-		onCurrentChange?.(next);
-		api?.scrollTo(next);
-	}
-
-	function handleKeydown(event: KeyboardEvent) {
+	$effect(() => {
 		if (!api) return;
 
-		if (event.key === 'ArrowLeft') {
-			event.preventDefault();
-			setCurrent(current - 1);
-		}
-
-		if (event.key === 'ArrowRight') {
-			event.preventDefault();
-			setCurrent(current + 1);
-		}
-	}
+		const next = current;
+		tick().then(() => {
+			api?.scrollTo(next);
+		});
+	});
 </script>
-
-<svelte:window onkeydown={handleKeydown} />
 
 <Carousel.Root
 	setApi={(emblaApi) => (api = emblaApi)}
@@ -50,7 +35,7 @@
 		skipSnaps: false,
 		containScroll: false,
 		align: 'start',
-		duration: 20
+		duration: 32
 	}}
 >
 	<Carousel.Content>
@@ -60,7 +45,7 @@
 			{@const isRightOfActive = current - i === -1}
 			<Carousel.Item
 				class={[
-					'basis-33 transition-[margin] duration-200 ease-out',
+					'basis-33 transition-[margin-left,margin-right] duration-200 ease-out',
 					isLeftOfActive && 'mr-7',
 					isRightOfActive && 'ml-7'
 				]}
