@@ -1,7 +1,13 @@
-<main class="m-10">
-	<div
-		class="flex size-36 items-center justify-center rounded-md border border-neutral-100 font-medium text-white"
-	>
-		Home
-	</div>
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+
+	function handlePress() {
+		goto(resolve('/home'));
+	}
+</script>
+
+<main>
+	<div class="flex items-center justify-center font-medium">Log in page</div>
+	<button onclick={handlePress}>Go Home</button>
 </main>

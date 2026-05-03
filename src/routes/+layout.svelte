@@ -11,6 +11,6 @@
 	/>
 </svelte:head>
 
-<div class="app-root bg-black">
+<div class="h-screen w-screen overflow-hidden bg-black text-white">
 	{@render children()}
 </div>
