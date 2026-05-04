@@ -18,5 +18,11 @@ export const mockGames: Game[] = [
 		title: 'The Witcher 3: Wild Hunt',
 		cover: '/witcher3cover.png',
 		hero: '/witcher3hero.jpg'
+	},
+	{
+		id: '4',
+		title: 'Kingdom Come: Deliverace II',
+		cover: '/kcd2cover.jpg',
+		hero: '/kcd2hero.jpg'
 	}
 ];

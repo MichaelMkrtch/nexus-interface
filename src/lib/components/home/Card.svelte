@@ -54,12 +54,32 @@
 		border-radius: var(--game-card-cover-radius);
 		transform-origin: top;
 		transform: scale(0.74);
-		background: linear-gradient(to bottom right, #ef4444, #fef08a);
-		transition: transform 200ms ease-out;
+		transition: transform 100ms cubic-bezier(0, 0.2, 0.58, 1);
+	}
+
+	.game-card-button::after {
+		content: '';
+		position: absolute;
+		inset: -75%;
+		pointer-events: none;
+		opacity: 0;
+		background: linear-gradient(
+			115deg,
+			transparent 18%,
+			rgb(255 255 255 / 0.05) 35%,
+			rgb(255 255 255 / 0.3) 50%,
+			rgb(255 255 255 / 0.07) 65%,
+			transparent 82%
+		);
+		transform: translateX(-95%) rotate(4deg);
 	}
 
 	.game-card.is-active .game-card-button {
 		transform: scale(1);
+	}
+
+	.game-card.is-active .game-card-button::after {
+		animation: active-card-shine 6000ms cubic-bezier(0.16, 1, 0.3, 1) 3000ms infinite;
 	}
 
 	.active-card-border {
@@ -81,7 +101,7 @@
 			linear-gradient(#000 0 0);
 		-webkit-mask-composite: xor;
 		animation:
-			active-card-border-in 150ms ease-out 190ms both,
+			active-card-border-in 100ms ease-out 180ms both,
 			active-card-border-spin 8000ms linear 180ms infinite;
 	}
 
@@ -100,6 +120,22 @@
 	@keyframes active-card-border-spin {
 		to {
 			--game-card-border-angle: 360deg;
+		}
+	}
+
+	@keyframes active-card-shine {
+		0% {
+			opacity: 0;
+			transform: translateX(-95%) rotate(4deg);
+		}
+
+		10% {
+			opacity: 1;
+		}
+
+		100% {
+			opacity: 0;
+			transform: translateX(95%) rotate(4deg);
 		}
 	}
 </style>

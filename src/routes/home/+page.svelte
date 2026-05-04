@@ -3,6 +3,7 @@
 	import GameHero from '$components/home/GameHero.svelte';
 	import Header from '$components/home/Header.svelte';
 	import { mockGames } from '$lib/features/games/mock-games';
+	import { startGamepadNavigation } from '$lib/input/gamepad';
 
 	let focusedGameIndex = $state(0);
 
@@ -21,6 +22,18 @@
 			focusGame(focusedGameIndex + 1);
 		}
 	}
+
+	$effect(() => {
+		return startGamepadNavigation({
+			onDirection: (direction) => {
+				if (direction === 'left') {
+					focusGame(focusedGameIndex - 1);
+				} else {
+					focusGame(focusedGameIndex + 1);
+				}
+			}
+		});
+	});
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -32,6 +45,6 @@
 
 	<!-- Fullscreen UI -->
 	<div class="relative w-full overflow-hidden">
-		<CardCarousel games={mockGames} current={focusedGameIndex} />
+		<CardCarousel games={mockGames} focusedIndex={focusedGameIndex} />
 	</div>
 </main>

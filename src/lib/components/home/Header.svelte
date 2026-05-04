@@ -1,4 +1,4 @@
-<header class="relative px-20 py-14">
+<header class="relative px-20 py-10">
 	<div class="bg-eased-header pointer-events-none absolute inset-x-0 top-0 h-48"></div>
 
 	<div class="relative">
