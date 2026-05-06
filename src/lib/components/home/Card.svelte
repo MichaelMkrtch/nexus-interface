@@ -4,17 +4,26 @@
 	interface CardProps {
 		game: Game;
 		isActive?: boolean;
+		isFocused?: boolean;
+		align?: 'center' | 'start';
 	}
 
-	let { game, isActive = false }: CardProps = $props();
+	let { game, isActive = false, isFocused = false, align = 'center' }: CardProps = $props();
 </script>
 
-<div class={['game-card', isActive && 'is-active']}>
-	{#if isActive}
+<div
+	class={[
+		'game-card',
+		isActive && 'is-active',
+		isFocused && 'is-focused',
+		align === 'start' && 'align-start'
+	]}
+>
+	{#if isFocused}
 		<div class="active-card-border pointer-events-none absolute"></div>
 	{/if}
 
-	<button class="game-card-button" aria-label={game.title}>
+	<button class="game-card-button" aria-label={game.title} data-game-cover>
 		<img src={game.cover} alt={game.title} class="size-full object-cover" draggable="false" />
 	</button>
 </div>
@@ -33,6 +42,11 @@
 		--game-card-border-radius: 28px;
 		--game-card-cover-radius: 24px;
 		--game-card-border-angle: 0deg;
+		--game-card-border-reveal-end: 0;
+		--game-card-border-reveal-duration: 200ms;
+		--game-card-border-reveal-scale: 0.95;
+		--game-card-inactive-scale: 0.625;
+		--game-card-focus-ease: cubic-bezier(0.37, 0, 0.63, 1);
 
 		position: relative;
 		display: flex;
@@ -52,9 +66,14 @@
 		padding: 0;
 		overflow: hidden;
 		border-radius: var(--game-card-cover-radius);
-		transform-origin: top;
-		transform: scale(0.74);
-		transition: transform 100ms cubic-bezier(0, 0.2, 0.58, 1);
+		transform-origin: 50% 10%;
+		transform: scale(var(--game-card-inactive-scale));
+		transition: transform 100ms var(--game-card-focus-ease);
+		will-change: transform;
+	}
+
+	.game-card.align-start .game-card-button {
+		transform-origin: 0 0;
 	}
 
 	.game-card-button::after {
@@ -78,12 +97,13 @@
 		transform: scale(1);
 	}
 
-	.game-card.is-active .game-card-button::after {
-		animation: active-card-shine 6000ms cubic-bezier(0.16, 1, 0.3, 1) 3000ms infinite;
+	.game-card.is-focused .game-card-button::after {
+		animation: active-card-shine 4500ms linear 2000ms infinite;
 	}
 
 	.active-card-border {
 		z-index: 0;
+		inset: var(--game-card-border-reveal-end);
 		border-radius: var(--game-card-border-radius);
 		padding: var(--game-card-border-width);
 		background: conic-gradient(
@@ -100,20 +120,22 @@
 			linear-gradient(#000 0 0) content-box,
 			linear-gradient(#000 0 0);
 		-webkit-mask-composite: xor;
+		transform-origin: center;
+		will-change: transform, opacity;
 		animation:
-			active-card-border-in 100ms ease-out 180ms both,
-			active-card-border-spin 8000ms linear 180ms infinite;
+			active-card-border-in var(--game-card-border-reveal-duration) ease-out both,
+			active-card-border-spin 4000ms linear infinite;
 	}
 
 	@keyframes active-card-border-in {
 		from {
-			inset: 4px;
 			opacity: 0;
+			transform: scale(var(--game-card-border-reveal-scale));
 		}
 
 		to {
-			inset: 0;
 			opacity: 1;
+			transform: scale(1);
 		}
 	}
 
@@ -125,14 +147,16 @@
 
 	@keyframes active-card-shine {
 		0% {
-			opacity: 0;
+			opacity: 1;
 			transform: translateX(-95%) rotate(4deg);
 		}
 
-		10% {
+		13.333% {
 			opacity: 1;
+			transform: translateX(95%) rotate(4deg);
 		}
 
+		20%,
 		100% {
 			opacity: 0;
 			transform: translateX(95%) rotate(4deg);

@@ -2,49 +2,63 @@
 	import CardCarousel from '$components/home/CardCarousel.svelte';
 	import GameHero from '$components/home/GameHero.svelte';
 	import Header from '$components/home/Header.svelte';
+	import PlayButton from '$components/home/PlayButton.svelte';
+	import { createHomeNavigation } from '$lib/features/home/home-navigation.svelte';
 	import { mockGames } from '$lib/features/games/mock-games';
 	import { startGamepadNavigation } from '$lib/input/gamepad';
 
-	let focusedGameIndex = $state(0);
+	let playButtonRef = $state<HTMLButtonElement | null>(null);
 
-	function focusGame(index: number) {
-		focusedGameIndex = Math.max(0, Math.min(index, mockGames.length - 1));
-	}
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'ArrowLeft') {
-			event.preventDefault();
-			focusGame(focusedGameIndex - 1);
-		}
-
-		if (event.key === 'ArrowRight') {
-			event.preventDefault();
-			focusGame(focusedGameIndex + 1);
-		}
-	}
+	const navigation = createHomeNavigation({
+		gameCount: mockGames.length,
+		onFocusCarousel: () => playButtonRef?.blur(),
+		onFocusPlay: () => playButtonRef?.focus(),
+		onConfirmPlay: () => playButtonRef?.click()
+	});
 
 	$effect(() => {
 		return startGamepadNavigation({
-			onDirection: (direction) => {
-				if (direction === 'left') {
-					focusGame(focusedGameIndex - 1);
-				} else {
-					focusGame(focusedGameIndex + 1);
-				}
-			}
+			onDirection: navigation.handleDirection,
+			onConfirm: navigation.confirm
 		});
+	});
+
+	$effect(() => {
+		const handleFocusIn = (event: FocusEvent) => {
+			navigation.syncFocusFromElement(event.target, playButtonRef);
+		};
+
+		const handlePointerDown = (event: PointerEvent) => {
+			navigation.syncPointerTarget(event.target, playButtonRef);
+		};
+
+		window.addEventListener('focusin', handleFocusIn);
+		window.addEventListener('pointerdown', handlePointerDown);
+
+		return () => {
+			window.removeEventListener('focusin', handleFocusIn);
+			window.removeEventListener('pointerdown', handlePointerDown);
+		};
 	});
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={navigation.handleKeydown} />
 
 <main class="relative size-full overflow-hidden">
-	<GameHero games={mockGames} focusedIndex={focusedGameIndex} />
+	<GameHero games={mockGames} focusedIndex={navigation.focusedGameIndex} />
 
 	<Header />
 
 	<!-- Fullscreen UI -->
-	<div class="relative w-full overflow-hidden">
-		<CardCarousel games={mockGames} focusedIndex={focusedGameIndex} />
+	<div class="w-full overflow-hidden">
+		<CardCarousel
+			games={mockGames}
+			focusedIndex={navigation.focusedGameIndex}
+			focusArea={navigation.focusArea}
+		/>
+
+		<section class="absolute bottom-44 ml-44">
+			<PlayButton bind:ref={playButtonRef} />
+		</section>
 	</div>
 </main>

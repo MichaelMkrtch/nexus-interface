@@ -2,12 +2,6 @@ import type { Game } from './types';
 
 export const mockGames: Game[] = [
 	{
-		id: '1',
-		title: 'Persona 5 Royal',
-		cover: '/persona5royalcover.png',
-		hero: '/persona5royalhero.jpg'
-	},
-	{
 		id: '2',
 		title: 'Resident Evil Requiem',
 		cover: '/residentevilrequiemcover.jpg',
@@ -24,5 +18,11 @@ export const mockGames: Game[] = [
 		title: 'Kingdom Come: Deliverace II',
 		cover: '/kcd2cover.jpg',
 		hero: '/kcd2hero.jpg'
+	},
+	{
+		id: '1',
+		title: 'Persona 5 Royal',
+		cover: '/persona5royalcover.png',
+		hero: '/persona5royalhero.jpg'
 	}
 ];
