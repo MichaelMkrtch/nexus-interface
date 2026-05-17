@@ -1,7 +1,4 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
-
-	import CardCarousel from '$components/home/CardCarousel.svelte';
 	import GameHero from '$components/home/GameHero.svelte';
 	import Header from '$components/home/Header.svelte';
 	import HomeRail from '$components/home/HomeRail.svelte';
@@ -12,16 +9,6 @@
 	import { createKeyboardInputAdapter } from '$lib/input/adapters/keyboard';
 	import { createWebGamepadInputAdapter } from '$lib/input/adapters/web-gamepad';
 	import { createInputRuntime } from '$lib/input/runtime';
-
-	type HomeScrollerVariant = 'rail' | 'embla';
-
-	function getHomeScrollerVariant(): HomeScrollerVariant {
-		if (!browser) return 'rail';
-
-		return new URLSearchParams(window.location.search).get('scroller') === 'embla'
-			? 'embla'
-			: 'rail';
-	}
 
 	function handlePlayGame() {
 		// Launch wiring is not implemented yet.
@@ -43,7 +30,6 @@
 	const inputRuntime = createInputRuntime({
 		adapters: [createKeyboardInputAdapter(), createWebGamepadInputAdapter()]
 	});
-	const homeScroller = getHomeScrollerVariant();
 
 	$effect(() => {
 		return inputRuntime.subscribe(handleHomeInput);
@@ -57,21 +43,12 @@
 
 	<!-- Fullscreen UI -->
 	<div class="w-full overflow-hidden">
-		{#if homeScroller === 'embla'}
-			<CardCarousel
-				games={mockGames}
-				focusedIndex={navigation.focusedGameIndex}
-				activeSection={navigation.activeSection}
-				onCardPress={navigation.focusGame}
-			/>
-		{:else}
-			<HomeRail
-				games={mockGames}
-				focusedIndex={navigation.focusedGameIndex}
-				activeSection={navigation.activeSection}
-				onCardPress={navigation.focusGame}
-			/>
-		{/if}
+		<HomeRail
+			games={mockGames}
+			focusedIndex={navigation.focusedGameIndex}
+			activeSection={navigation.activeSection}
+			onCardPress={navigation.focusGame}
+		/>
 
 		<section class="absolute bottom-44 ml-44">
 			<PlayButton

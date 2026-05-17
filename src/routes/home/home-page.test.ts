@@ -103,14 +103,4 @@ describe('home page', () => {
 			expect(targetGame.closest('.game-card')).toHaveClass('is-active');
 		});
 	});
-
-	it('can still render the existing Embla implementation for comparison', async () => {
-		window.history.replaceState({}, '', '/home?scroller=embla');
-
-		const { default: HomePage } = await import('./+page.svelte');
-		const { container } = render(HomePage);
-
-		expect(container.querySelector('[data-slot="carousel-content"]')).not.toBeNull();
-		expect(container.querySelector('.home-rail')).toBeNull();
-	});
 });
