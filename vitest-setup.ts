@@ -65,3 +65,17 @@ Object.defineProperty(globalThis, 'ResizeObserver', {
 	writable: true,
 	value: MockResizeObserver
 });
+
+if (!Element.prototype.animate) {
+	Object.defineProperty(Element.prototype, 'animate', {
+		writable: true,
+		value: () => ({
+			cancel: () => undefined,
+			commitStyles: () => undefined,
+			finished: Promise.resolve(),
+			finish: () => undefined,
+			pause: () => undefined,
+			play: () => undefined
+		})
+	});
+}

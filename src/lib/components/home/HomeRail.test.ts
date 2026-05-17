@@ -23,15 +23,28 @@ describe('HomeRail', () => {
 		const selectedItem = container.querySelector('.home-rail-item.is-selected');
 		const previousItem = screen
 			.getByRole('button', { name: mockGames[1]?.title ?? '' })
-			.closest('.home-rail-item');
+			.closest('.home-rail-item') as HTMLElement | null;
 
-		expect(selectedItem).toHaveStyle({
-			transform: 'translate3d(0rem, 0, 0)'
-		});
-		expect(previousItem).not.toHaveStyle({
-			transform: 'translate3d(0rem, 0, 0)'
-		});
+		expect(selectedItem).toHaveStyle('--home-rail-x: 0rem');
+		expect(previousItem?.style.getPropertyValue('--home-rail-x')).not.toBe('0rem');
 		expect(screen.getByText(mockGames[2]?.title ?? '')).toBeInTheDocument();
+	});
+
+	it('renders the active title in an anchored title shell on first paint', () => {
+		const { container } = render(HomeRail, {
+			props: {
+				games: mockGames,
+				focusedIndex: 0,
+				activeSection: HOME_SECTIONS.carousel
+			}
+		});
+
+		const titleShell = container.querySelector('.home-rail-title-shell');
+		const title = container.querySelector('.home-rail-title h2');
+
+		expect(window.getComputedStyle(titleShell as Element).left).toBe('0px');
+		expect(window.getComputedStyle(titleShell as Element).top).toBe('0px');
+		expect(title).toHaveTextContent(mockGames[0]?.title ?? '');
 	});
 
 	it('keeps the selected game prominent while hiding the rest in the actions section', () => {
@@ -47,10 +60,15 @@ describe('HomeRail', () => {
 			.getByRole('button', { name: mockGames[1]?.title ?? '' })
 			.closest('.game-card');
 		const hiddenCards = document.querySelectorAll('.home-rail-item.is-hidden-in-detail');
+		const previousCardItem = screen
+			.getByRole('button', { name: mockGames[0]?.title ?? '' })
+			.closest('.home-rail-item') as HTMLElement | null;
 
 		expect(selectedCard).toHaveClass('is-active');
 		expect(selectedCard).not.toHaveClass('is-focused');
 		expect(hiddenCards).toHaveLength(mockGames.length - 1);
+		expect(previousCardItem?.style.getPropertyValue('--home-rail-x')).not.toBe('0rem');
+		expect(previousCardItem?.style.getPropertyValue('--home-rail-y')).toBe('-9rem');
 	});
 
 	it('uses centered card alignment in carousel mode and start alignment in actions mode', async () => {

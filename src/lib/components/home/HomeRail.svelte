@@ -8,6 +8,8 @@
 
 	import Card from './Card.svelte';
 
+	const CAROUSEL_INSET_REM = 11;
+	const ACTIONS_INSET_REM = 5;
 	const CARD_SIZE_REM = 11;
 	const COMPACT_ADVANCE_REM = 7.15;
 	const ACTIVE_GAP_BOOST_REM = 2.3;
@@ -35,7 +37,7 @@
 	let lastHandledSection = untrack(() => activeSection);
 
 	function getSectionInsetRem(section: HomeSection) {
-		return section === HOME_SECTIONS.actions ? 5 : 11;
+		return section === HOME_SECTIONS.actions ? ACTIONS_INSET_REM : CAROUSEL_INSET_REM;
 	}
 
 	function getTitleLeftRem(section: HomeSection) {
@@ -81,12 +83,14 @@
 
 <div
 	class="home-rail"
-	style:--home-rail-inset={`${getSectionInsetRem(activeSection)}rem`}
 	style:--home-rail-title-enter={`${TITLE_ENTER_MS}ms`}
 	style:--home-rail-title-enter-offset={`${TITLE_ENTER_OFFSET_REM}rem`}
 >
 	<div class="home-rail-viewport" data-section={activeSection}>
-		<div class="home-rail-stage">
+		<div
+			class="home-rail-stage"
+			style:transform={`translate3d(${getSectionInsetRem(activeSection)}rem, 0, 0)`}
+		>
 			{#each games as game, index (game.id)}
 				{@const isSelected = focusedIndex === index}
 				{@const isHighlighted = highlightedIndex === index}
@@ -100,7 +104,8 @@
 						isHighlighted && 'is-highlighted',
 						isHiddenInDetail && 'is-hidden-in-detail'
 					]}
-					style:transform={`translate3d(${getCardOffsetRem(index)}rem, 0, 0)`}
+					style:--home-rail-x={`${getCardOffsetRem(index)}rem`}
+					style:--home-rail-y={isHiddenInDetail ? '-9rem' : '0rem'}
 					data-selected-card={isSelected}
 				>
 					<Card
@@ -118,8 +123,9 @@
 
 	<div
 		class="home-rail-title-shell"
-		style:left={`${getTitleLeftRem(activeSection)}rem`}
-		style:top={`${getTitleTopRem(activeSection)}rem`}
+		style:left="0px"
+		style:top="0px"
+		style:transform={`translate3d(${getTitleLeftRem(activeSection)}rem, ${getTitleTopRem(activeSection)}rem, 0)`}
 	>
 		{#if isTitleVisible}
 			{#key displayedTitleIndex}
@@ -137,29 +143,35 @@
 	.home-rail {
 		position: relative;
 		overflow: hidden;
+		contain: layout paint;
+		isolation: isolate;
 	}
 
 	.home-rail-viewport {
 		position: relative;
 		overflow: hidden;
-		padding-inline-start: var(--home-rail-inset);
 		padding-top: 0.5rem;
-		transition: padding-inline-start 260ms cubic-bezier(0.22, 1, 0.36, 1);
 	}
 
 	.home-rail-stage {
 		position: relative;
 		height: 12rem;
+		will-change: transform;
+		transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+		transform: translate3d(0, 0, 0);
 	}
 
 	.home-rail-item {
 		position: absolute;
 		inset-inline-start: 0;
 		inset-block-start: 0;
+		contain: paint;
+		backface-visibility: hidden;
 		will-change: transform, opacity;
 		transition:
 			transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
 			opacity 220ms ease;
+		transform: translate3d(var(--home-rail-x), var(--home-rail-y), 0);
 		z-index: 1;
 	}
 
@@ -169,16 +181,14 @@
 
 	.home-rail-item.is-hidden-in-detail {
 		pointer-events: none;
-		transform: translate3d(0, -9rem, 0);
 		opacity: 0;
 	}
 
 	.home-rail-title-shell {
 		position: absolute;
 		pointer-events: none;
-		transition:
-			left 200ms cubic-bezier(0.22, 1, 0.36, 1),
-			top 200ms cubic-bezier(0.22, 1, 0.36, 1);
+		will-change: transform;
+		transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
 	}
 
 	.home-rail-title {
