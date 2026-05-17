@@ -49,6 +49,7 @@ function emitInput(action: InputEvent['action']) {
 describe('home page', () => {
 	beforeEach(() => {
 		runtimeListener = undefined;
+		window.history.replaceState({}, '', '/home');
 	});
 
 	it('renders the initial focus state from app-owned navigation state', async () => {
@@ -101,5 +102,15 @@ describe('home page', () => {
 		await waitFor(() => {
 			expect(targetGame.closest('.game-card')).toHaveClass('is-active');
 		});
+	});
+
+	it('can still render the existing Embla implementation for comparison', async () => {
+		window.history.replaceState({}, '', '/home?scroller=embla');
+
+		const { default: HomePage } = await import('./+page.svelte');
+		const { container } = render(HomePage);
+
+		expect(container.querySelector('[data-slot="carousel-content"]')).not.toBeNull();
+		expect(container.querySelector('.home-rail')).toBeNull();
 	});
 });
