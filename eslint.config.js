@@ -1,4 +1,5 @@
 import prettier from 'eslint-config-prettier';
+import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import path from 'node:path';
 import { includeIgnoreFile } from '@eslint/compat';
 import js from '@eslint/js';
@@ -19,10 +20,28 @@ export default defineConfig(
 	svelte.configs.prettier,
 	{
 		languageOptions: { globals: { ...globals.browser, ...globals.node } },
+		plugins: {
+			'simple-import-sort': simpleImportSort
+		},
 		rules: {
 			// typescript-eslint strongly recommend that you do not use the no-undef lint rule on TypeScript projects.
 			// see: https://typescript-eslint.io/troubleshooting/faqs/eslint/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
-			'no-undef': 'off'
+			'no-undef': 'off',
+			'simple-import-sort/imports': [
+				'error',
+				{
+					groups: [
+						['^node:'],
+						['^svelte$', '^@?\\w'],
+						['^\\$app(/.*)?$', '^\\$env(/.*)?$', '^\\$service-worker$'],
+						['^\\$components(/.*)?$', '^\\$lib(/.*)?$'],
+						['^\\.\\.(?!/?$)', '^\\.\\./?$'],
+						['^\\./(?=.*/)(?!/?$)', '^\\.(?!/?$)', '^\\./?$'],
+						['^.+\\.s?css$']
+					]
+				}
+			],
+			'simple-import-sort/exports': 'error'
 		}
 	},
 	{
@@ -49,7 +68,8 @@ export default defineConfig(
 					caughtErrorsIgnorePattern: '^_',
 					destructuredArrayIgnorePattern: '^_'
 				}
-			]
+			],
+			'simple-import-sort/imports': 'off'
 		}
 	}
 );
