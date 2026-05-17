@@ -1,6 +1,5 @@
-import type { GamepadDirection } from '$lib/input/gamepad';
-
 export type HomeFocusArea = 'carousel' | 'play';
+export type HomeMoveDirection = 'left' | 'right' | 'up' | 'down';
 
 type HomeNavigationOptions = {
 	gameCount: number;
@@ -41,7 +40,7 @@ export function createHomeNavigation({
 		focusGame(focusedGameIndex + delta);
 	}
 
-	function handleDirection(direction: GamepadDirection) {
+	function handleDirection(direction: HomeMoveDirection) {
 		if (direction === 'left') {
 			moveGame(-1);
 		} else if (direction === 'right') {
@@ -56,26 +55,6 @@ export function createHomeNavigation({
 	function confirm() {
 		if (focusArea === 'play') {
 			onConfirmPlay?.();
-		}
-	}
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'ArrowLeft') {
-			event.preventDefault();
-			handleDirection('left');
-		} else if (event.key === 'ArrowRight') {
-			event.preventDefault();
-			handleDirection('right');
-		} else if (event.key === 'ArrowDown') {
-			event.preventDefault();
-			handleDirection('down');
-		} else if (event.key === 'ArrowUp') {
-			event.preventDefault();
-			handleDirection('up');
-		} else if (event.key === 'Enter' || event.key === ' ') {
-			if (focusArea !== 'play') return;
-			event.preventDefault();
-			confirm();
 		}
 	}
 
@@ -104,7 +83,6 @@ export function createHomeNavigation({
 		focusPlay,
 		focusGame,
 		handleDirection,
-		handleKeydown,
 		confirm,
 		syncFocusFromElement,
 		syncPointerTarget

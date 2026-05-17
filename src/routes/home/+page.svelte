@@ -3,9 +3,12 @@
 	import GameHero from '$components/home/GameHero.svelte';
 	import Header from '$components/home/Header.svelte';
 	import PlayButton from '$components/home/PlayButton.svelte';
-	import { createHomeNavigation } from '$lib/features/home/home-navigation.svelte';
 	import { mockGames } from '$lib/features/games/mock-games';
-	import { startGamepadNavigation } from '$lib/input/gamepad';
+	import { createHomeInputHandler } from '$lib/features/home/home-input';
+	import { createHomeNavigation } from '$lib/features/home/home-navigation.svelte';
+	import { createKeyboardInputAdapter } from '$lib/input/adapters/keyboard';
+	import { createWebGamepadInputAdapter } from '$lib/input/adapters/web-gamepad';
+	import { createInputRuntime } from '$lib/input/runtime';
 
 	let playButtonRef = $state<HTMLButtonElement | null>(null);
 
@@ -15,12 +18,13 @@
 		onFocusPlay: () => playButtonRef?.focus(),
 		onConfirmPlay: () => playButtonRef?.click()
 	});
+	const handleHomeInput = createHomeInputHandler({ navigation });
+	const inputRuntime = createInputRuntime({
+		adapters: [createKeyboardInputAdapter(), createWebGamepadInputAdapter()]
+	});
 
 	$effect(() => {
-		return startGamepadNavigation({
-			onDirection: navigation.handleDirection,
-			onConfirm: navigation.confirm
-		});
+		return inputRuntime.subscribe(handleHomeInput);
 	});
 
 	$effect(() => {
@@ -41,8 +45,6 @@
 		};
 	});
 </script>
-
-<svelte:window onkeydown={navigation.handleKeydown} />
 
 <main class="relative size-full overflow-hidden">
 	<GameHero games={mockGames} focusedIndex={navigation.focusedGameIndex} />
