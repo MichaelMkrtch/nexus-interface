@@ -1,11 +1,12 @@
 <script lang="ts">
 	import type { CarouselAPI } from '$components/ui/carousel/context';
 	import type { Game } from '$lib/features/games/types';
-	import type { HomeFocusArea } from '$lib/features/home/home-navigation.svelte';
+	import type { HomeSection } from '$lib/features/home/home-navigation.svelte';
 
 	import { tick } from 'svelte';
 
 	import * as Carousel from '$components/ui/carousel';
+	import { HOME_SECTIONS } from '$lib/features/home/home-navigation.svelte';
 
 	import Card from './Card.svelte';
 
@@ -19,10 +20,11 @@
 	interface CardCarouselProps {
 		games: Game[];
 		focusedIndex: number;
-		focusArea: HomeFocusArea;
+		activeSection: HomeSection;
+		onCardPress?: (index: number) => void;
 	}
 
-	let { games, focusedIndex, focusArea }: CardCarouselProps = $props();
+	let { games, focusedIndex, activeSection, onCardPress }: CardCarouselProps = $props();
 
 	let api = $state<CarouselAPI>();
 	let carouselRoot = $state<HTMLDivElement | null>(null);
@@ -32,9 +34,9 @@
 	let titleLeft = $state(0);
 	let titleTop = $state(TITLE_DEFAULT_TOP_PX);
 	let lastHandledIndex = 0;
-	let lastHandledFocusArea: HomeFocusArea = 'carousel';
+	let lastSection: HomeSection = HOME_SECTIONS.carousel;
 	let settledFocusedIndex = $state(0);
-	let settledFocusArea = $state<HomeFocusArea>('carousel');
+	let settledSection = $state<HomeSection>(HOME_SECTIONS.carousel);
 
 	function updateTitlePosition() {
 		if (!carouselRoot) return;
@@ -49,7 +51,7 @@
 
 		titleLeft = coverRect.right - carouselRect.left + TITLE_OFFSET_PX;
 		titleTop =
-			focusArea === 'play'
+			activeSection === HOME_SECTIONS.actions
 				? coverRect.top - carouselRect.top + TITLE_DETAIL_TOP_OFFSET_PX
 				: TITLE_DEFAULT_TOP_PX;
 	}
@@ -84,15 +86,15 @@
 		if (!api) return;
 
 		const next = focusedIndex;
-		const nextFocusArea = focusArea;
+		const nextSection = activeSection;
 		const indexChanged = next !== lastHandledIndex;
-		const focusAreaChanged = nextFocusArea !== lastHandledFocusArea;
-		const shouldWaitForScroll = indexChanged && nextFocusArea === 'carousel';
-		const shouldWaitForRegion = focusAreaChanged && !shouldWaitForScroll;
+		const sectionChanged = nextSection !== lastSection;
+		const shouldWaitForScroll = indexChanged && nextSection === HOME_SECTIONS.carousel;
+		const shouldWaitForRegion = sectionChanged && !shouldWaitForScroll;
 		let titleAnimationFrame: number | undefined;
 		let isCancelled = false;
 
-		if (!indexChanged && !focusAreaChanged) {
+		if (!indexChanged && !sectionChanged) {
 			tick().then(() => {
 				api?.scrollTo(next);
 				if (!isTitleVisible) {
@@ -113,13 +115,13 @@
 		}
 
 		lastHandledIndex = next;
-		lastHandledFocusArea = nextFocusArea;
+		lastSection = nextSection;
 
-		if (nextFocusArea === 'carousel' && (indexChanged || focusAreaChanged)) {
-			settledFocusArea = nextFocusArea;
+		if (nextSection === HOME_SECTIONS.carousel && (indexChanged || sectionChanged)) {
+			settledSection = nextSection;
 			settledFocusedIndex = -1;
 		} else {
-			settledFocusArea = nextFocusArea;
+			settledSection = nextSection;
 			settledFocusedIndex = next;
 		}
 
@@ -140,7 +142,7 @@
 			if (isCancelled) return;
 
 			settledFocusedIndex = next;
-			settledFocusArea = nextFocusArea;
+			settledSection = nextSection;
 			displayedTitleIndex = next;
 			titleAnimationFrame = window.requestAnimationFrame(() => {
 				updateTitlePosition();
@@ -173,24 +175,24 @@
 	<Carousel.Content
 		class={[
 			'pt-3 transition-[margin-inline-start] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
-			focusArea === 'play' ? 'ms-20' : 'ms-44'
+			activeSection === HOME_SECTIONS.actions ? 'ms-20' : 'ms-44'
 		]}
 	>
 		{#each games as game, i (game.id)}
 			{@const isSelected = focusedIndex === i}
-			{@const isCarouselFocused = focusArea === 'carousel'}
-			{@const isPlayFocused = focusArea === 'play'}
+			{@const isCarouselFocused = activeSection === HOME_SECTIONS.carousel}
+			{@const isActionFocused = activeSection === HOME_SECTIONS.actions}
 			{@const isSettledFocusedCard =
-				settledFocusedIndex === i && settledFocusArea === 'carousel'}
+				settledFocusedIndex === i && settledSection === HOME_SECTIONS.carousel}
 			{@const isFocusedCard = isSelected && isCarouselFocused}
-			{@const isDetailCard = isSelected && isPlayFocused}
-			{@const isHiddenInDetail = !isSelected && isPlayFocused}
+			{@const isDetailCard = isSelected && isActionFocused}
+			{@const isHiddenInDetail = !isSelected && isActionFocused}
 			<Carousel.Item
 				class={[
 					'basis-33 transition-[margin-left,margin-right] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
-					isFocusedCard && 'mx-[24px]',
+					isFocusedCard && 'mx-6',
 					isDetailCard && 'mx-0',
-					!isSelected && '-mx-[8px]'
+					!isSelected && '-mx-2'
 				]}
 			>
 				<div
@@ -203,10 +205,12 @@
 					data-selected-card={isSelected}
 				>
 					<Card
+						index={i}
 						{game}
 						isActive={isFocusedCard}
 						isFocused={isSettledFocusedCard}
 						align={isDetailCard ? 'start' : 'center'}
+						onPress={onCardPress}
 					/>
 				</div>
 			</Carousel.Item>
@@ -214,7 +218,7 @@
 
 		<!-- End spacer -->
 		<!-- Allows end cards to reach active position -->
-		<div aria-hidden="true" class="h-px shrink-0 basis-[calc(100vw-19.25rem)]"></div>
+		<!-- <div aria-hidden="true" class="h-px shrink-0 basis-[calc(100vw-19.25rem)]"></div> -->
 	</Carousel.Content>
 
 	<div

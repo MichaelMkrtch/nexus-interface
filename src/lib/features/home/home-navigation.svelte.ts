@@ -1,90 +1,121 @@
-export type HomeFocusArea = 'carousel' | 'play';
-export type HomeMoveDirection = 'left' | 'right' | 'up' | 'down';
+export const HOME_SECTIONS = {
+	carousel: 'carousel',
+	actions: 'actions'
+} as const;
 
-type HomeNavigationOptions = {
+export type HomeSection = (typeof HOME_SECTIONS)[keyof typeof HOME_SECTIONS];
+export type Move = 'left' | 'right' | 'up' | 'down';
+
+type Options = {
 	gameCount: number;
-	onFocusCarousel?: () => void;
-	onFocusPlay?: () => void;
-	onConfirmPlay?: () => void;
+	actionCount?: number;
+	onConfirmAction?: (actionIndex: number) => void;
+};
+
+export type HomeNav = {
+	readonly activeSection: HomeSection;
+	readonly focusedGameIndex: number;
+	readonly focusedActionIndex: number;
+	focusGame: (index: number) => void;
+	focusAction: (index: number) => void;
+	move: (direction: Move) => void;
+	confirm: () => void;
 };
 
 export function createHomeNavigation({
 	gameCount,
-	onFocusCarousel,
-	onFocusPlay,
-	onConfirmPlay
-}: HomeNavigationOptions) {
-	let focusedGameIndex = $state(0);
-	let focusArea = $state<HomeFocusArea>('carousel');
+	actionCount = 1,
+	onConfirmAction
+}: Options): HomeNav {
+	const sectionOrder = [HOME_SECTIONS.carousel, HOME_SECTIONS.actions] as const;
+	const itemCounts: Record<HomeSection, () => number> = {
+		[HOME_SECTIONS.carousel]: () => gameCount,
+		[HOME_SECTIONS.actions]: () => actionCount
+	};
 
-	function clampGameIndex(index: number) {
-		return Math.max(0, Math.min(index, gameCount - 1));
+	let activeSection = $state<HomeSection>(HOME_SECTIONS.carousel);
+	let indices = $state<Record<HomeSection, number>>({
+		[HOME_SECTIONS.carousel]: 0,
+		[HOME_SECTIONS.actions]: 0
+	});
+
+	function clampIndex(section: HomeSection, index: number) {
+		const itemCount = itemCounts[section]();
+		if (itemCount <= 0) return 0;
+
+		return Math.max(0, Math.min(index, itemCount - 1));
+	}
+
+	function setIndex(section: HomeSection, index: number) {
+		const nextIndex = clampIndex(section, index);
+		if (indices[section] === nextIndex) return;
+
+		indices = {
+			...indices,
+			[section]: nextIndex
+		};
+	}
+
+	function setActiveSection(section: HomeSection) {
+		if (activeSection === section) return;
+		activeSection = section;
 	}
 
 	function focusGame(index: number) {
-		focusedGameIndex = clampGameIndex(index);
+		setIndex(HOME_SECTIONS.carousel, index);
+		setActiveSection(HOME_SECTIONS.carousel);
 	}
 
-	function focusCarousel() {
-		focusArea = 'carousel';
-		onFocusCarousel?.();
+	function focusAction(index: number) {
+		setIndex(HOME_SECTIONS.actions, index);
+		setActiveSection(HOME_SECTIONS.actions);
 	}
 
-	function focusPlay() {
-		focusArea = 'play';
-		onFocusPlay?.();
+	function moveWithinSection(delta: number) {
+		setIndex(activeSection, indices[activeSection] + delta);
 	}
 
-	function moveGame(delta: number) {
-		if (focusArea !== 'carousel') return;
-		focusGame(focusedGameIndex + delta);
+	function moveBetweenSections(delta: number) {
+		const currentIndex = sectionOrder.indexOf(activeSection);
+		const nextIndex = Math.max(0, Math.min(currentIndex + delta, sectionOrder.length - 1));
+		const nextSection = sectionOrder[nextIndex];
+
+		if (!nextSection || nextSection === activeSection) return;
+
+		setActiveSection(nextSection);
 	}
 
-	function handleDirection(direction: HomeMoveDirection) {
+	function move(direction: Move) {
 		if (direction === 'left') {
-			moveGame(-1);
+			moveWithinSection(-1);
 		} else if (direction === 'right') {
-			moveGame(1);
-		} else if (direction === 'down' && focusArea === 'carousel') {
-			focusPlay();
-		} else if (direction === 'up' && focusArea === 'play') {
-			focusCarousel();
+			moveWithinSection(1);
+		} else if (direction === 'down') {
+			moveBetweenSections(1);
+		} else if (direction === 'up') {
+			moveBetweenSections(-1);
 		}
 	}
 
 	function confirm() {
-		if (focusArea === 'play') {
-			onConfirmPlay?.();
-		}
-	}
-
-	function syncFocusFromElement(target: EventTarget | null, playButton: HTMLButtonElement | null) {
-		if (target === playButton) {
-			focusArea = 'play';
-		}
-	}
-
-	function syncPointerTarget(target: EventTarget | null, playButton: HTMLButtonElement | null) {
-		if (target === playButton) {
-			focusPlay();
-		} else {
-			focusCarousel();
+		if (activeSection === HOME_SECTIONS.actions) {
+			onConfirmAction?.(indices[HOME_SECTIONS.actions]);
 		}
 	}
 
 	return {
+		get activeSection() {
+			return activeSection;
+		},
 		get focusedGameIndex() {
-			return focusedGameIndex;
+			return indices[HOME_SECTIONS.carousel];
 		},
-		get focusArea() {
-			return focusArea;
+		get focusedActionIndex() {
+			return indices[HOME_SECTIONS.actions];
 		},
-		focusCarousel,
-		focusPlay,
 		focusGame,
-		handleDirection,
-		confirm,
-		syncFocusFromElement,
-		syncPointerTarget
+		focusAction,
+		move,
+		confirm
 	};
 }

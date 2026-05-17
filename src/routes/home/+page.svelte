@@ -5,18 +5,26 @@
 	import PlayButton from '$components/home/PlayButton.svelte';
 	import { mockGames } from '$lib/features/games/mock-games';
 	import { createHomeInputHandler } from '$lib/features/home/home-input';
-	import { createHomeNavigation } from '$lib/features/home/home-navigation.svelte';
+	import { createHomeNavigation, HOME_SECTIONS } from '$lib/features/home/home-navigation.svelte';
 	import { createKeyboardInputAdapter } from '$lib/input/adapters/keyboard';
 	import { createWebGamepadInputAdapter } from '$lib/input/adapters/web-gamepad';
 	import { createInputRuntime } from '$lib/input/runtime';
 
-	let playButtonRef = $state<HTMLButtonElement | null>(null);
+	function handlePlayGame() {
+		// Launch wiring is not implemented yet.
+	}
+
+	function handlePlayButtonPress() {
+		navigation.focusAction(0);
+	}
 
 	const navigation = createHomeNavigation({
 		gameCount: mockGames.length,
-		onFocusCarousel: () => playButtonRef?.blur(),
-		onFocusPlay: () => playButtonRef?.focus(),
-		onConfirmPlay: () => playButtonRef?.click()
+		onConfirmAction: (actionIndex) => {
+			if (actionIndex === 0) {
+				handlePlayGame();
+			}
+		}
 	});
 	const handleHomeInput = createHomeInputHandler({ navigation });
 	const inputRuntime = createInputRuntime({
@@ -25,24 +33,6 @@
 
 	$effect(() => {
 		return inputRuntime.subscribe(handleHomeInput);
-	});
-
-	$effect(() => {
-		const handleFocusIn = (event: FocusEvent) => {
-			navigation.syncFocusFromElement(event.target, playButtonRef);
-		};
-
-		const handlePointerDown = (event: PointerEvent) => {
-			navigation.syncPointerTarget(event.target, playButtonRef);
-		};
-
-		window.addEventListener('focusin', handleFocusIn);
-		window.addEventListener('pointerdown', handlePointerDown);
-
-		return () => {
-			window.removeEventListener('focusin', handleFocusIn);
-			window.removeEventListener('pointerdown', handlePointerDown);
-		};
 	});
 </script>
 
@@ -56,11 +46,17 @@
 		<CardCarousel
 			games={mockGames}
 			focusedIndex={navigation.focusedGameIndex}
-			focusArea={navigation.focusArea}
+			activeSection={navigation.activeSection}
+			onCardPress={navigation.focusGame}
 		/>
 
 		<section class="absolute bottom-44 ml-44">
-			<PlayButton bind:ref={playButtonRef} />
+			<PlayButton
+				isFocused={navigation.activeSection === HOME_SECTIONS.actions &&
+					navigation.focusedActionIndex === 0}
+				onPress={handlePlayButtonPress}
+				onConfirm={handlePlayGame}
+			/>
 		</section>
 	</div>
 </main>

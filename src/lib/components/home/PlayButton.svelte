@@ -1,14 +1,23 @@
 <script lang="ts">
 	interface PlayButtonProps {
 		label?: string;
-		ref?: HTMLButtonElement | null;
+		isFocused?: boolean;
+		onPress?: () => void;
+		onConfirm?: () => void;
 	}
 
-	let { label = 'Play Game', ref = $bindable(null) }: PlayButtonProps = $props();
+	let { label = 'Play Game', isFocused = false, onPress, onConfirm }: PlayButtonProps = $props();
 </script>
 
-<div class="play-button-shell">
-	<button bind:this={ref} class="play-button" type="button">
+<div class={['play-button-shell', isFocused && 'is-focused']}>
+	<button
+		class="play-button"
+		type="button"
+		tabindex="-1"
+		aria-current={isFocused ? 'true' : undefined}
+		onpointerdown={onPress}
+		onclick={onConfirm}
+	>
 		{label}
 	</button>
 </div>
@@ -49,15 +58,14 @@
 			color 150ms ease;
 	}
 
-	.play-button:focus,
-	.play-button:hover,
-	.play-button:focus-visible {
+	.play-button-shell.is-focused .play-button,
+	.play-button:hover {
 		background: #fff;
 		color: #282828;
 		outline: none;
 	}
 
-	.play-button-shell:focus-within::before {
+	.play-button-shell.is-focused::before {
 		content: '';
 		position: absolute;
 		z-index: 0;

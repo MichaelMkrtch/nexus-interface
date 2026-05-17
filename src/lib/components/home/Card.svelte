@@ -2,13 +2,26 @@
 	import type { Game } from '$lib/features/games/types';
 
 	interface CardProps {
+		index: number;
 		game: Game;
 		isActive?: boolean;
 		isFocused?: boolean;
 		align?: 'center' | 'start';
+		onPress?: (index: number) => void;
 	}
 
-	let { game, isActive = false, isFocused = false, align = 'center' }: CardProps = $props();
+	let {
+		index,
+		game,
+		isActive = false,
+		isFocused = false,
+		align = 'center',
+		onPress
+	}: CardProps = $props();
+
+	function handlePointerDown() {
+		onPress?.(index);
+	}
 </script>
 
 <div
@@ -23,7 +36,14 @@
 		<div class="active-card-border pointer-events-none absolute"></div>
 	{/if}
 
-	<button class="game-card-button" aria-label={game.title} data-game-cover>
+	<button
+		class="game-card-button"
+		type="button"
+		tabindex="-1"
+		aria-label={game.title}
+		data-game-cover
+		onpointerdown={handlePointerDown}
+	>
 		<img src={game.cover} alt={game.title} class="size-full object-cover" draggable="false" />
 	</button>
 </div>
