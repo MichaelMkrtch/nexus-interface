@@ -58,8 +58,7 @@
 			color 150ms ease;
 	}
 
-	.play-button-shell.is-focused .play-button,
-	.play-button:hover {
+	.play-button-shell.is-focused .play-button {
 		background: #fff;
 		color: #282828;
 		outline: none;

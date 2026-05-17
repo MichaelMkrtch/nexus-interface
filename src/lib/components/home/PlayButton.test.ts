@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 
 import PlayButton from './PlayButton.svelte';
@@ -31,5 +32,14 @@ describe('PlayButton', () => {
 		expect(onPress).toHaveBeenCalledTimes(1);
 		expect(onConfirm).toHaveBeenCalledTimes(1);
 		expect(button).not.toHaveAttribute('aria-current');
+	});
+
+	it('does not define mouse-hover styling for the play button', () => {
+		const source = readFileSync(
+			'/Users/michael/Developer/Projects/nexus/interface/src/lib/components/home/PlayButton.svelte',
+			'utf8'
+		);
+
+		expect(source).not.toContain('.play-button:hover');
 	});
 });
