@@ -3,5 +3,6 @@ export type Game = {
 	title: string;
 	cover: string;
 	hero: string;
+	launchable?: boolean;
 	lastPlayed?: string;
 };

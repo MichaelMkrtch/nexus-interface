@@ -1,28 +1,58 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+
 	import GameHero from '$components/home/GameHero.svelte';
 	import Header from '$components/home/Header.svelte';
 	import HomeRail from '$components/home/HomeRail.svelte';
 	import PlayButton from '$components/home/PlayButton.svelte';
-	import { mockGames } from '$lib/features/games/mock-games';
+	import {
+		launchHomeGame,
+		loadHomeGames,
+		type LibraryScanProgressRecord
+	} from '$lib/features/games/library';
+	import type { Game } from '$lib/features/games/types';
 	import { createHomeInputHandler } from '$lib/features/home/home-input';
 	import { createHomeNavigation, HOME_SECTIONS } from '$lib/features/home/home-navigation.svelte';
 	import { createKeyboardInputAdapter } from '$lib/input/adapters/keyboard';
 	import { createWebGamepadInputAdapter } from '$lib/input/adapters/web-gamepad';
+	import { INPUT_ACTIONS, type InputEvent } from '$lib/input/contracts';
 	import { createInputRuntime } from '$lib/input/runtime';
 
-	function handlePlayGame() {
-		// Launch wiring is not implemented yet.
+	type LibraryState = 'loading' | 'ready' | 'empty' | 'error';
+
+	let games = $state<Game[]>([]);
+	let libraryState = $state<LibraryState>('loading');
+	let libraryError = $state('');
+	let launchError = $state('');
+	let libraryProgress = $state<LibraryScanProgressRecord | null>(null);
+	let isLibraryLoadSlow = $state(false);
+
+	async function handlePlayGame() {
+		const activeGame = games[navigation.focusedGameIndex];
+		if (!activeGame?.launchable) return;
+
+		launchError = '';
+		const result = await launchHomeGame(activeGame.id);
+		if (!result.ok) {
+			launchError = result.error;
+		}
 	}
 
 	function handlePlayButtonPress() {
+		launchError = '';
 		navigation.focusAction(0);
 	}
 
+	function handleGameCardPress(index: number) {
+		launchError = '';
+		navigation.focusGame(index);
+	}
+
 	const navigation = createHomeNavigation({
-		gameCount: mockGames.length,
+		gameCount: () => games.length,
 		onConfirmAction: (actionIndex) => {
 			if (actionIndex === 0) {
-				handlePlayGame();
+				void handlePlayGame();
 			}
 		}
 	});
@@ -31,13 +61,76 @@
 		adapters: [createKeyboardInputAdapter(), createWebGamepadInputAdapter()]
 	});
 
+	function dispatchHomeInput(event: InputEvent) {
+		if (launchError && event.action !== INPUT_ACTIONS.confirm) {
+			launchError = '';
+		}
+
+		handleHomeInput(event);
+	}
+
 	$effect(() => {
-		return inputRuntime.subscribe(handleHomeInput);
+		return inputRuntime.subscribe(dispatchHomeInput);
 	});
+
+	onMount(() => {
+		void loadGames();
+	});
+
+	async function loadGames() {
+		libraryState = 'loading';
+		libraryError = '';
+		launchError = '';
+		libraryProgress = null;
+		isLibraryLoadSlow = false;
+		const slowLoadTimer = window.setTimeout(() => {
+			isLibraryLoadSlow = true;
+		}, 6000);
+
+		try {
+			const nextGames = await loadHomeGames({
+				onScanProgress(progress) {
+					libraryProgress = progress;
+				}
+			});
+			games = nextGames;
+			libraryState = nextGames.length > 0 ? 'ready' : 'empty';
+		} catch (error) {
+			libraryState = 'error';
+			libraryError =
+				error instanceof Error ? error.message : 'Failed to load the local game library.';
+		} finally {
+			window.clearTimeout(slowLoadTimer);
+		}
+	}
+
+	function getLibraryLoadingCopy() {
+		return (
+			libraryProgress?.message ?? 'Inspecting local launcher data and installed game locations.'
+		);
+	}
+
+	function getLibraryLoadingMeta() {
+		if (
+			!libraryProgress ||
+			libraryProgress.current === undefined ||
+			libraryProgress.total === undefined
+		) {
+			return '';
+		}
+
+		if (libraryProgress.total === 0) {
+			return 'No entries discovered in this step yet.';
+		}
+
+		return `${libraryProgress.current} of ${libraryProgress.total}`;
+	}
 </script>
 
 <main class="relative size-full overflow-hidden">
-	<GameHero games={mockGames} focusedIndex={navigation.focusedGameIndex} />
+	{#if games.length > 0}
+		<GameHero {games} focusedIndex={navigation.focusedGameIndex} />
+	{/if}
 
 	<div class="home-overview">
 		<div
@@ -49,23 +142,58 @@
 			<Header />
 		</div>
 
-		<div class="home-overview-rail">
-			<HomeRail
-				games={mockGames}
-				focusedIndex={navigation.focusedGameIndex}
-				activeSection={navigation.activeSection}
-				onCardPress={navigation.focusGame}
-			/>
-		</div>
+		{#if libraryState === 'ready'}
+			<div class="home-overview-rail">
+				<HomeRail
+					{games}
+					focusedIndex={navigation.focusedGameIndex}
+					activeSection={navigation.activeSection}
+					onCardPress={handleGameCardPress}
+				/>
+			</div>
 
-		<section class="home-actions">
-			<PlayButton
-				isFocused={navigation.activeSection === HOME_SECTIONS.actions &&
-					navigation.focusedActionIndex === 0}
-				onPress={handlePlayButtonPress}
-				onConfirm={handlePlayGame}
-			/>
-		</section>
+			<section class="home-actions">
+				<PlayButton
+					label={games[navigation.focusedGameIndex]?.launchable ? 'Play Game' : 'Unavailable'}
+					isFocused={navigation.activeSection === HOME_SECTIONS.actions &&
+						navigation.focusedActionIndex === 0}
+					onPress={handlePlayButtonPress}
+					onConfirm={handlePlayGame}
+				/>
+			</section>
+
+			{#if launchError}
+				<p class="home-launch-error" role="alert" aria-live="assertive">{launchError}</p>
+			{/if}
+		{:else}
+			<section class="home-library-state">
+				<h2 class="home-library-state-title">
+					{libraryState === 'loading'
+						? 'Loading your local library'
+						: libraryState === 'empty'
+							? 'No local games found'
+							: 'Library unavailable'}
+				</h2>
+				<p class="home-library-state-copy">
+					{libraryState === 'loading'
+						? getLibraryLoadingCopy()
+						: libraryState === 'empty'
+							? 'No installed games were discovered yet. Steam local discovery is the first source wired into the shell.'
+							: libraryError}
+				</p>
+
+				{#if libraryState === 'loading' && getLibraryLoadingMeta()}
+					<p class="home-library-state-meta">{getLibraryLoadingMeta()}</p>
+				{/if}
+
+				{#if libraryState === 'loading' && isLibraryLoadSlow}
+					<p class="home-library-state-hint">
+						This is taking longer than usual. Large libraries can take extra time while the shell
+						inspects manifests and executable paths.
+					</p>
+				{/if}
+			</section>
+		{/if}
 	</div>
 </main>
 
@@ -108,6 +236,61 @@
 		position: absolute;
 		left: 11rem;
 		bottom: 11rem;
+		z-index: 30;
+	}
+
+	.home-library-state {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		max-width: 34rem;
+		padding: 2rem 2.5rem;
+		border: 1px solid rgb(255 255 255 / 0.08);
+		border-radius: 2rem;
+		background:
+			linear-gradient(145deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.02)), rgb(0 0 0 / 0.35);
+		backdrop-filter: blur(18px);
+		transform: translate3d(-50%, -50%, 0);
+		text-align: center;
+	}
+
+	.home-library-state-title {
+		font-size: 2rem;
+		font-weight: 700;
+		line-height: 1.1;
+	}
+
+	.home-library-state-copy {
+		margin-top: 0.75rem;
+		color: rgb(255 255 255 / 0.72);
+		font-size: 1rem;
+		line-height: 1.6;
+	}
+
+	.home-library-state-meta {
+		margin-top: 1rem;
+		color: rgb(255 255 255 / 0.56);
+		font-size: 0.9rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.home-library-state-hint {
+		margin-top: 1rem;
+		color: rgb(255 255 255 / 0.62);
+		font-size: 0.95rem;
+		line-height: 1.55;
+	}
+
+	.home-launch-error {
+		position: absolute;
+		left: 11rem;
+		bottom: 7.5rem;
+		max-width: 28rem;
+		color: rgb(255 205 205 / 0.92);
+		font-size: 0.95rem;
+		line-height: 1.5;
+		text-shadow: 0 0.05rem 0.8rem rgb(0 0 0 / 0.35);
 		z-index: 30;
 	}
 </style>

@@ -7,7 +7,7 @@ export type HomeSection = (typeof HOME_SECTIONS)[keyof typeof HOME_SECTIONS];
 export type Move = 'left' | 'right' | 'up' | 'down';
 
 type Options = {
-	gameCount: number;
+	gameCount: number | (() => number);
 	actionCount?: number;
 	onConfirmAction?: (actionIndex: number) => void;
 };
@@ -27,9 +27,10 @@ export function createHomeNavigation({
 	actionCount = 1,
 	onConfirmAction
 }: Options): HomeNav {
+	const getGameCount = typeof gameCount === 'function' ? gameCount : () => gameCount;
 	const sectionOrder = [HOME_SECTIONS.carousel, HOME_SECTIONS.actions] as const;
 	const itemCounts: Record<HomeSection, () => number> = {
-		[HOME_SECTIONS.carousel]: () => gameCount,
+		[HOME_SECTIONS.carousel]: getGameCount,
 		[HOME_SECTIONS.actions]: () => actionCount
 	};
 
