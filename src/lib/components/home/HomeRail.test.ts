@@ -47,7 +47,7 @@ describe('HomeRail', () => {
 		expect(title).toHaveTextContent(mockGames[0]?.title ?? '');
 	});
 
-	it('keeps the selected game prominent while hiding the rest in the actions section', () => {
+	it('returns the selected card to standard size while hiding the rest in the actions section', () => {
 		render(HomeRail, {
 			props: {
 				games: mockGames,
@@ -64,15 +64,17 @@ describe('HomeRail', () => {
 			.getByRole('button', { name: mockGames[0]?.title ?? '' })
 			.closest('.home-rail-item') as HTMLElement | null;
 
-		expect(selectedCard).toHaveClass('is-active');
+		expect(selectedCard).not.toHaveClass('is-active');
 		expect(selectedCard).not.toHaveClass('is-focused');
 		expect(hiddenCards).toHaveLength(mockGames.length - 1);
-		expect(previousCardItem?.style.getPropertyValue('--home-rail-x')).not.toBe('0rem');
-		expect(previousCardItem?.style.getPropertyValue('--home-rail-y')).toBe('-9rem');
+		expect(
+			Number.parseFloat(previousCardItem?.style.getPropertyValue('--home-rail-x') ?? '0')
+		).toBeCloseTo(-3.45, 2);
+		expect(previousCardItem?.style.getPropertyValue('--home-rail-y')).toBe('-15rem');
 	});
 
 	it('uses centered card alignment in carousel mode and start alignment in actions mode', async () => {
-		const { rerender } = render(HomeRail, {
+		const { container, rerender } = render(HomeRail, {
 			props: {
 				games: mockGames,
 				focusedIndex: 1,
@@ -83,7 +85,11 @@ describe('HomeRail', () => {
 		const carouselCard = screen
 			.getByRole('button', { name: mockGames[1]?.title ?? '' })
 			.closest('.game-card');
+		const carouselTitleShell = container.querySelector(
+			'.home-rail-title-shell'
+		) as HTMLElement | null;
 		expect(carouselCard).not.toHaveClass('align-start');
+		expect(carouselTitleShell?.style.transform).toContain('translate3d(23rem');
 
 		await rerender({
 			games: mockGames,
@@ -94,7 +100,11 @@ describe('HomeRail', () => {
 		const actionCard = screen
 			.getByRole('button', { name: mockGames[1]?.title ?? '' })
 			.closest('.game-card');
+		const actionTitleShell = container.querySelector(
+			'.home-rail-title-shell'
+		) as HTMLElement | null;
 		expect(actionCard).toHaveClass('align-start');
+		expect(actionTitleShell?.style.transform).toContain('translate3d(12.875rem');
 	});
 
 	it('lets the card scale first, then fades the new title and focus chrome in together', async () => {

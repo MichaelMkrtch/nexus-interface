@@ -10,9 +10,13 @@
 
 	const CAROUSEL_INSET_REM = 11;
 	const ACTIONS_INSET_REM = 5;
+	const TOP_BLEED_REM = 9;
 	const CARD_SIZE_REM = 11;
+	const RESTING_CARD_SCALE = 0.625;
 	const COMPACT_ADVANCE_REM = 7.15;
 	const ACTIVE_GAP_BOOST_REM = 2.3;
+	const DETAIL_EXIT_LIFT_REM = -15;
+	const DETAIL_EXIT_FADE_MS = 160;
 	const TITLE_OFFSET_REM = 1;
 	const TITLE_DEFAULT_TOP_REM = 8.5;
 	const TITLE_DETAIL_TOP_REM = 2.25;
@@ -41,21 +45,37 @@
 	}
 
 	function getTitleLeftRem(section: HomeSection) {
-		return getSectionInsetRem(section) + CARD_SIZE_REM + TITLE_OFFSET_REM;
+		const anchoredCardWidthRem =
+			section === HOME_SECTIONS.actions ? CARD_SIZE_REM * RESTING_CARD_SCALE : CARD_SIZE_REM;
+
+		return getSectionInsetRem(section) + anchoredCardWidthRem + TITLE_OFFSET_REM;
 	}
 
 	function getTitleTopRem(section: HomeSection) {
-		return section === HOME_SECTIONS.actions ? TITLE_DETAIL_TOP_REM : TITLE_DEFAULT_TOP_REM;
+		const sectionTop =
+			section === HOME_SECTIONS.actions ? TITLE_DETAIL_TOP_REM : TITLE_DEFAULT_TOP_REM;
+
+		return TOP_BLEED_REM + sectionTop;
 	}
 
-	function getCardOffsetRem(index: number) {
+	function getHiddenCardOffsetCompensationRem(section: HomeSection, index: number) {
+		if (section !== HOME_SECTIONS.actions || index === focusedIndex) return 0;
+
+		return CAROUSEL_INSET_REM - ACTIONS_INSET_REM;
+	}
+
+	function getCardOffsetRem(index: number, section: HomeSection) {
 		const distanceFromSelected = index - focusedIndex;
 		if (distanceFromSelected === 0) return 0;
 
 		const direction = Math.sign(distanceFromSelected);
 		const compactOffset = distanceFromSelected * COMPACT_ADVANCE_REM;
 
-		return compactOffset + direction * ACTIVE_GAP_BOOST_REM;
+		return (
+			compactOffset +
+			direction * ACTIVE_GAP_BOOST_REM +
+			getHiddenCardOffsetCompensationRem(section, index)
+		);
 	}
 
 	$effect(() => {
@@ -83,6 +103,8 @@
 
 <div
 	class="home-rail"
+	style:--home-rail-detail-exit-fade={`${DETAIL_EXIT_FADE_MS}ms`}
+	style:--home-rail-top-bleed={`${TOP_BLEED_REM}rem`}
 	style:--home-rail-title-enter={`${TITLE_ENTER_MS}ms`}
 	style:--home-rail-title-enter-offset={`${TITLE_ENTER_OFFSET_REM}rem`}
 >
@@ -104,14 +126,14 @@
 						isHighlighted && 'is-highlighted',
 						isHiddenInDetail && 'is-hidden-in-detail'
 					]}
-					style:--home-rail-x={`${getCardOffsetRem(index)}rem`}
-					style:--home-rail-y={isHiddenInDetail ? '-9rem' : '0rem'}
+					style:--home-rail-x={`${getCardOffsetRem(index, activeSection)}rem`}
+					style:--home-rail-y={isHiddenInDetail ? `${DETAIL_EXIT_LIFT_REM}rem` : '0rem'}
 					data-selected-card={isSelected}
 				>
 					<Card
 						{index}
 						{game}
-						isActive={isSelected}
+						isActive={isSelected && !isActionFocused}
 						isFocused={isHighlighted && isCarouselFocused}
 						align={isActionFocused ? 'start' : 'center'}
 						onPress={onCardPress}
@@ -145,12 +167,15 @@
 		overflow: hidden;
 		contain: layout paint;
 		isolation: isolate;
+		margin-top: calc(-1 * var(--home-rail-top-bleed));
+		padding-top: var(--home-rail-top-bleed);
 	}
 
 	.home-rail-viewport {
 		position: relative;
 		overflow: hidden;
-		padding-top: 0.5rem;
+		margin-top: calc(-1 * var(--home-rail-top-bleed));
+		padding-top: calc(var(--home-rail-top-bleed) + 0.5rem);
 	}
 
 	.home-rail-stage {
@@ -170,7 +195,7 @@
 		will-change: transform, opacity;
 		transition:
 			transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
-			opacity 220ms ease;
+			opacity var(--home-rail-detail-exit-fade) ease;
 		transform: translate3d(var(--home-rail-x), var(--home-rail-y), 0);
 		z-index: 1;
 	}

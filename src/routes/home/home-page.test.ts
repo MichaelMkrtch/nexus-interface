@@ -66,7 +66,7 @@ describe('home page', () => {
 
 	it('updates focus through the injected input runtime and pointer interactions', async () => {
 		const { default: HomePage } = await import('./+page.svelte');
-		render(HomePage);
+		const { container } = render(HomePage);
 
 		const playButton = screen.getByRole('button', { name: 'Play Game' });
 		emitInput(INPUT_ACTIONS.moveDown);
@@ -75,6 +75,9 @@ describe('home page', () => {
 			expect(playButton).toHaveAttribute('aria-current', 'true');
 		});
 
+		const header = container.querySelector('.home-overview-header');
+		expect(header).toHaveClass('is-hidden-in-detail');
+
 		emitInput(INPUT_ACTIONS.moveUp);
 		emitInput(INPUT_ACTIONS.moveRight);
 
@@ -82,6 +85,8 @@ describe('home page', () => {
 			const secondGame = screen.getByRole('button', { name: mockGames[1]?.title ?? '' });
 			expect(secondGame.closest('.game-card')).toHaveClass('is-active');
 		});
+
+		expect(header).not.toHaveClass('is-hidden-in-detail');
 
 		// Pointer input should focus the selected action directly instead of
 		// depending on browser focus events.

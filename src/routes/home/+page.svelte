@@ -39,18 +39,26 @@
 <main class="relative size-full overflow-hidden">
 	<GameHero games={mockGames} focusedIndex={navigation.focusedGameIndex} />
 
-	<Header />
+	<div class="home-overview">
+		<div
+			class={[
+				'home-overview-header',
+				navigation.activeSection === HOME_SECTIONS.actions && 'is-hidden-in-detail'
+			]}
+		>
+			<Header />
+		</div>
 
-	<!-- Fullscreen UI -->
-	<div class="w-full overflow-hidden">
-		<HomeRail
-			games={mockGames}
-			focusedIndex={navigation.focusedGameIndex}
-			activeSection={navigation.activeSection}
-			onCardPress={navigation.focusGame}
-		/>
+		<div class="home-overview-rail">
+			<HomeRail
+				games={mockGames}
+				focusedIndex={navigation.focusedGameIndex}
+				activeSection={navigation.activeSection}
+				onCardPress={navigation.focusGame}
+			/>
+		</div>
 
-		<section class="absolute bottom-44 ml-44">
+		<section class="home-actions">
 			<PlayButton
 				isFocused={navigation.activeSection === HOME_SECTIONS.actions &&
 					navigation.focusedActionIndex === 0}
@@ -60,3 +68,46 @@
 		</section>
 	</div>
 </main>
+
+<style>
+	.home-overview {
+		--home-header-space: 6rem;
+
+		position: relative;
+		width: 100%;
+		height: 100%;
+		padding-top: var(--home-header-space);
+		overflow: hidden;
+	}
+
+	.home-overview-header {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 20;
+		pointer-events: none;
+		transition:
+			transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+			opacity 220ms ease;
+		transform: translate3d(0, 0, 0);
+		will-change: transform, opacity;
+	}
+
+	.home-overview-header.is-hidden-in-detail {
+		opacity: 0;
+		transform: translate3d(0, -9rem, 0);
+	}
+
+	.home-overview-rail {
+		position: relative;
+		z-index: 10;
+	}
+
+	.home-actions {
+		position: absolute;
+		left: 11rem;
+		bottom: 11rem;
+		z-index: 30;
+	}
+</style>
