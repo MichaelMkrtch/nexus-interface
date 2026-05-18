@@ -48,4 +48,20 @@ describe('Card', () => {
 		expect(onPress).toHaveBeenCalledTimes(1);
 		expect(onPress).toHaveBeenCalledWith(3);
 	});
+
+	it('renders a missing artwork state when no cover image is available', () => {
+		render(Card, {
+			props: {
+				index: 0,
+				game: {
+					...game,
+					cover: undefined
+				}
+			}
+		});
+
+		expect(screen.getByText('Artwork missing')).toBeInTheDocument();
+		expect(screen.getByText(game.title)).toBeInTheDocument();
+		expect(screen.queryByAltText(game.title)).not.toBeInTheDocument();
+	});
 });

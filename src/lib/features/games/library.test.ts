@@ -14,19 +14,33 @@ const libraryGame: LibraryGameRecord = {
 	title: 'Cyberpunk 2077',
 	source: 'steam',
 	installState: 'installed',
+	artwork: {
+		coverUrl: 'nexus-artwork://local/cover',
+		heroUrl: 'nexus-artwork://local/hero'
+	},
 	executableConfidence: 'medium',
 	launchable: true
 };
 
 describe('games library client', () => {
-	it('maps a discovered library record into the home game shape with stable fallback artwork', () => {
+	it('maps a discovered library record into the home game shape with Steam cache artwork', () => {
 		const mappedGame = mapLibraryGameToHomeGame(libraryGame);
 
 		expect(mappedGame.id).toBe(libraryGame.id);
 		expect(mappedGame.title).toBe(libraryGame.title);
 		expect(mappedGame.launchable).toBe(true);
-		expect(mockGames.some((game) => game.cover === mappedGame.cover)).toBe(true);
-		expect(mockGames.some((game) => game.hero === mappedGame.hero)).toBe(true);
+		expect(mappedGame.cover).toBe(libraryGame.artwork?.coverUrl);
+		expect(mappedGame.hero).toBe(libraryGame.artwork?.heroUrl);
+	});
+
+	it('leaves artwork empty instead of falling back to mock assets when cache artwork is missing', () => {
+		const mappedGame = mapLibraryGameToHomeGame({
+			...libraryGame,
+			artwork: undefined
+		});
+
+		expect(mappedGame.cover).toBeUndefined();
+		expect(mappedGame.hero).toBeUndefined();
 	});
 
 	it('falls back to mock games when the preload api is unavailable', async () => {

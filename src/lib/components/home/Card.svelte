@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { Game } from '$lib/features/games/types';
 
+	import MissingArtwork from './MissingArtwork.svelte';
+
 	interface CardProps {
 		index: number;
 		game: Game;
@@ -44,7 +46,11 @@
 		data-game-cover
 		onpointerdown={handlePointerDown}
 	>
-		<img src={game.cover} alt={game.title} class="size-full object-cover" draggable="false" />
+		{#if game.cover}
+			<img src={game.cover} alt={game.title} class="size-full object-cover" draggable="false" />
+		{:else}
+			<MissingArtwork title={game.title} />
+		{/if}
 	</button>
 </div>
 

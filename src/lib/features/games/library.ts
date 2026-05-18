@@ -6,6 +6,10 @@ export type LibraryGameRecord = {
 	title: string;
 	source: 'steam';
 	installState: 'installed';
+	artwork?: {
+		coverUrl?: string;
+		heroUrl?: string;
+	};
 	executablePath?: string;
 	executableConfidence: 'high' | 'medium' | 'low' | 'unresolved';
 	launchable: boolean;
@@ -34,8 +38,6 @@ export type LibraryScanProgressRecord = {
 type LoadHomeGamesOptions = {
 	onScanProgress?: (progress: LibraryScanProgressRecord) => void;
 };
-
-const placeholderArtwork = mockGames.map(({ cover, hero }) => ({ cover, hero }));
 
 export async function loadHomeGames(options: LoadHomeGamesOptions = {}) {
 	const libraryApi = getLibraryApi();
@@ -75,13 +77,11 @@ export async function launchHomeGame(gameId: string) {
 }
 
 export function mapLibraryGameToHomeGame(game: LibraryGameRecord): Game {
-	const artwork = selectFallbackArtwork(game.id);
-
 	return {
 		id: game.id,
 		title: game.title,
-		cover: artwork.cover,
-		hero: artwork.hero,
+		cover: game.artwork?.coverUrl,
+		hero: game.artwork?.heroUrl,
 		launchable: game.launchable
 	};
 }
@@ -90,19 +90,4 @@ function getLibraryApi() {
 	if (typeof window === 'undefined') return undefined;
 
 	return window.api?.library;
-}
-
-function selectFallbackArtwork(id: string) {
-	const index = Math.abs(hashString(id)) % placeholderArtwork.length;
-	return placeholderArtwork[index] ?? placeholderArtwork[0]!;
-}
-
-function hashString(value: string) {
-	let hash = 0;
-
-	for (const char of value) {
-		hash = (hash * 31 + char.charCodeAt(0)) | 0;
-	}
-
-	return hash;
 }

@@ -21,6 +21,10 @@ const libraryGames: LibraryGameRecord[] = mockGames.map((game) => ({
 	title: game.title,
 	source: 'steam',
 	installState: 'installed',
+	artwork: {
+		coverUrl: `nexus-artwork://local/${game.id}-cover`,
+		heroUrl: `nexus-artwork://local/${game.id}-hero`
+	},
 	executableConfidence: 'high',
 	launchable: true
 }));

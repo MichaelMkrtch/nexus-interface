@@ -123,6 +123,23 @@ describe('GameHero', () => {
 		expect(getRenderedHeroSources(container)).toContain(mockGames[2]?.hero);
 	});
 
+	it('renders a missing artwork state when the focused game has no hero image', () => {
+		const { container } = render(GameHero, {
+			props: {
+				games: [
+					{
+						...mockGames[0]!,
+						hero: undefined
+					}
+				],
+				focusedIndex: 0
+			}
+		});
+
+		expect(container.querySelector('[data-missing-artwork="hero"]')).not.toBeNull();
+		expect(getRenderedHeroSources(container)).toEqual([]);
+	});
+
 	it('waits for the next hero image to decode before swapping layers', async () => {
 		const { container, rerender } = render(GameHero, {
 			props: {

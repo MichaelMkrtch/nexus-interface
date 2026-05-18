@@ -43,6 +43,8 @@
 
 	import type { Game } from '$lib/features/games/types';
 
+	import MissingArtwork from './MissingArtwork.svelte';
+
 	interface GameHeroProps {
 		games: Game[];
 		focusedIndex: number;
@@ -156,13 +158,17 @@
 {#if heroGame}
 	{#key heroGame.id}
 		<div class="game-hero-layer absolute inset-0" in:heroIn out:heroOut>
-			<img
-				src={heroGame.hero}
-				alt=""
-				class="game-hero-image size-full object-cover"
-				decoding="async"
-				draggable="false"
-			/>
+			{#if heroGame.hero}
+				<img
+					src={heroGame.hero}
+					alt=""
+					class="game-hero-image size-full object-cover"
+					decoding="async"
+					draggable="false"
+				/>
+			{:else}
+				<MissingArtwork title={heroGame.title} variant="hero" />
+			{/if}
 		</div>
 	{/key}
 {/if}
