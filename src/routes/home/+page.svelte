@@ -9,6 +9,13 @@
 	import IconActionButton from '$components/home/IconActionButton.svelte';
 	import PlayButton from '$components/home/PlayButton.svelte';
 	import {
+		pickLocalImageArtworkOverride,
+		setSteamGridDbArtworkOverride,
+		type ArtworkOverrideKind,
+		type SetArtworkOverrideResult,
+		type SteamGridDbArtworkOption
+	} from '$lib/features/games/artwork';
+	import {
 		launchHomeGame,
 		loadHomeGames,
 		type LibraryScanProgressRecord
@@ -102,12 +109,65 @@
 		inputSurfaceStack.remove('cover-picker');
 	}
 
-	function handleCoverSelect(coverUrl: string) {
+	async function handleCoverSelect(option: SteamGridDbArtworkOption) {
 		const activeGame = games[navigation.focusedGameIndex];
 		if (!activeGame) return;
 
-		games = games.map((game) => (game.id === activeGame.id ? { ...game, cover: coverUrl } : game));
+		const result = await setSteamGridDbArtworkOverride({
+			gameId: activeGame.id,
+			kind: 'cover',
+			imageUrl: option.url,
+			imageId: option.id,
+			originalFileName: getArtworkFileName(option.url)
+		});
+		if (!applyArtworkOverrideResult(result)) return;
+
 		closeCoverPicker();
+	}
+
+	async function handleCoverUpload() {
+		const result = await pickLocalOverrideForActiveGame('cover');
+		if (!result?.ok) return;
+
+		closeCoverPicker();
+	}
+
+	async function handleBackgroundUpload() {
+		const result = await pickLocalOverrideForActiveGame('background');
+		if (!result?.ok) return;
+
+		closeCoverActionMenu();
+	}
+
+	async function pickLocalOverrideForActiveGame(kind: ArtworkOverrideKind) {
+		const activeGame = games[navigation.focusedGameIndex];
+		if (!activeGame) return;
+
+		const result = await pickLocalImageArtworkOverride(activeGame.id, kind);
+		applyArtworkOverrideResult(result);
+		return result;
+	}
+
+	function applyArtworkOverrideResult(result: SetArtworkOverrideResult) {
+		if (!result.ok) {
+			if (result.reason !== 'cancelled') {
+				launchError = result.error;
+			}
+			return false;
+		}
+
+		const { gameId, kind, imageUrl } = result.override;
+		games = games.map((game) => {
+			if (game.id !== gameId) return game;
+
+			if (kind === 'cover') {
+				return { ...game, cover: imageUrl };
+			}
+
+			return { ...game, hero: imageUrl };
+		});
+		launchError = '';
+		return true;
 	}
 
 	function handleGameCardPress(index: number) {
@@ -179,6 +239,8 @@
 		if (event.action === INPUT_ACTIONS.confirm) {
 			if (focusedCoverActionMenuOptionIndex === COVER_ACTION_MENU_INDEX.updateCover) {
 				openCoverPicker();
+			} else if (focusedCoverActionMenuOptionIndex === COVER_ACTION_MENU_INDEX.updateBackground) {
+				void handleBackgroundUpload();
 			}
 		}
 	}
@@ -261,6 +323,14 @@
 
 		return `${libraryProgress.current} of ${libraryProgress.total}`;
 	}
+
+	function getArtworkFileName(url: string) {
+		try {
+			return new URL(url).pathname.split('/').filter(Boolean).at(-1);
+		} catch {
+			return undefined;
+		}
+	}
 </script>
 
 <main class="relative size-full overflow-hidden">
@@ -309,6 +379,7 @@
 						<CoverActionMenu
 							focusedOptionIndex={focusedCoverActionMenuOptionIndex}
 							onUpdateCover={openCoverPicker}
+							onUpdateBackground={handleBackgroundUpload}
 						/>
 					{/if}
 				</div>
@@ -320,6 +391,7 @@
 					game={games[navigation.focusedGameIndex]}
 					onClose={closeCoverPicker}
 					onSelect={handleCoverSelect}
+					onUploadLocal={handleCoverUpload}
 				/>
 			{/if}
 

@@ -2,9 +2,14 @@
 	interface CoverActionMenuProps {
 		focusedOptionIndex?: number;
 		onUpdateCover?: () => void;
+		onUpdateBackground?: () => void;
 	}
 
-	let { focusedOptionIndex = 0, onUpdateCover }: CoverActionMenuProps = $props();
+	let {
+		focusedOptionIndex = 0,
+		onUpdateCover,
+		onUpdateBackground
+	}: CoverActionMenuProps = $props();
 
 	const MENU_OPTIONS = {
 		updateCover: 0,
@@ -57,6 +62,7 @@
 			role="menuitem"
 			aria-current={focusedOptionIndex === MENU_OPTIONS.updateBackground ? 'true' : undefined}
 			tabindex="-1"
+			onclick={onUpdateBackground}
 		>
 			Update background image
 		</button>

@@ -31,9 +31,15 @@ describe('Card', () => {
 		const shell = button.closest('.game-card');
 
 		expect(button).toHaveAttribute('tabindex', '-1');
-		expect(button).toHaveClass('selection-highlight-sweep');
+		expect(button).toHaveClass('artwork-card-surface', 'selection-highlight-sweep');
 		expect(screen.getByAltText(game.title)).toHaveAttribute('src', game.cover);
-		expect(shell).toHaveClass('game-card', 'is-active', 'is-focused', 'align-start');
+		expect(shell).toHaveClass(
+			'artwork-card-frame',
+			'game-card',
+			'is-active',
+			'is-focused',
+			'align-start'
+		);
 		expect(shell?.querySelector('.active-card-border')).toHaveClass('selection-gradient-border');
 	});
 
@@ -77,6 +83,8 @@ describe('Card', () => {
 
 		expect(appCss).toContain(`--selection-highlight-delay: ${HIGHLIGHT_DELAY_MS}ms`);
 		expect(appCss).toContain(`--selection-highlight-cycle: ${HIGHLIGHT_CYCLE_MS}ms`);
+		expect(appCss).toContain('.artwork-card-frame');
+		expect(appCss).toContain('.artwork-card-surface');
 		expect(appCss).toContain('@keyframes selection-highlight-sweep');
 		expect(appCss).toContain('@keyframes selection-gradient-border-in');
 		expect(appCss).toContain('@keyframes selection-gradient-border-spin');

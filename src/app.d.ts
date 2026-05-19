@@ -1,4 +1,8 @@
-import type { ListSquareGridOptionsResult } from '$lib/features/games/artwork';
+import type {
+	ArtworkOverrideKind,
+	ListSquareGridOptionsResult,
+	SetArtworkOverrideResult
+} from '$lib/features/games/artwork';
 import type {
 	LibraryGameRecord,
 	LibraryLaunchResult,
@@ -21,6 +25,17 @@ declare global {
 			};
 			artwork?: {
 				listSquareGridOptions: (gameId: string) => Promise<ListSquareGridOptionsResult>;
+				pickLocalImageOverride?: (
+					gameId: string,
+					kind: ArtworkOverrideKind
+				) => Promise<SetArtworkOverrideResult>;
+				setSteamGridDbImageOverride?: (options: {
+					gameId: string;
+					kind: ArtworkOverrideKind;
+					imageUrl: string;
+					imageId?: number | string;
+					originalFileName?: string;
+				}) => Promise<SetArtworkOverrideResult>;
 			};
 		};
 	}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import Upload from '@lucide/svelte/icons/upload';
 	import X from '@lucide/svelte/icons/x';
 
 	import {
@@ -11,7 +12,8 @@
 
 	interface CoverArtPickerProps {
 		game: Game;
-		onSelect?: (url: string) => void;
+		onSelect?: (option: SteamGridDbArtworkOption) => void | Promise<void>;
+		onUploadLocal?: () => void | Promise<void>;
 		onClose?: () => void;
 	}
 
@@ -19,7 +21,7 @@
 
 	const coverPreloadCache: Record<string, Promise<void> | undefined> = Object.create(null);
 
-	let { game, onSelect, onClose }: CoverArtPickerProps = $props();
+	let { game, onSelect, onUploadLocal, onClose }: CoverArtPickerProps = $props();
 	let pickerState = $state<PickerState>('loading');
 	let options = $state<SteamGridDbArtworkOption[]>([]);
 	let error = $state('');
@@ -66,7 +68,7 @@
 			await preloadCover(option.url);
 			if (!isMounted || requestId !== selectRequestId) return;
 
-			onSelect?.(option.url);
+			await onSelect?.(option);
 		} finally {
 			if (isMounted && requestId === selectRequestId) {
 				isSelecting = false;
@@ -85,13 +87,18 @@
 
 		if (isSelecting) return true;
 
-		if (pickerState !== 'ready' || options.length === 0) return true;
-
 		if (event.action === INPUT_ACTIONS.confirm) {
-			const selectedOption = options[focusedOptionIndex];
+			if (focusedOptionIndex === 0) {
+				void onUploadLocal?.();
+				return true;
+			}
+
+			const selectedOption = options[focusedOptionIndex - 1];
 			if (selectedOption) handleSelect(selectedOption);
 			return true;
 		}
+
+		if (pickerState !== 'ready' || options.length === 0) return true;
 
 		if (event.action === INPUT_ACTIONS.moveLeft) {
 			moveFocus(-1);
@@ -121,7 +128,7 @@
 	}
 
 	function clampOptionIndex(index: number) {
-		return Math.max(0, Math.min(index, options.length - 1));
+		return Math.max(0, Math.min(index, options.length));
 	}
 
 	function getGridColumnCount() {
@@ -155,9 +162,9 @@
 	});
 
 	function getWarmOptionIndices(index: number) {
-		return [index, index + 1, index - 1].filter(
-			(candidate) => candidate >= 0 && candidate < options.length
-		);
+		return [index, index + 1, index - 1]
+			.map((candidate) => candidate - 1)
+			.filter((candidate) => candidate >= 0 && candidate < options.length);
 	}
 
 	function preloadCover(src: string | undefined) {
@@ -211,41 +218,84 @@
 
 	{#if pickerState === 'loading'}
 		<div class="cover-picker-state" aria-live="polite">Loading cover options.</div>
-	{:else if pickerState === 'error'}
-		<div class="cover-picker-state" role="alert">{error}</div>
-	{:else if pickerState === 'empty'}
-		<div class="cover-picker-state">No covers found.</div>
 	{:else}
 		<div class="cover-picker-grid" bind:this={gridElement}>
-			{#each options as option, index (option.id)}
-				<div class={['cover-picker-option-frame', focusedOptionIndex === index && 'is-focused']}>
-					{#if focusedOptionIndex === index}
-						<span class="cover-picker-option-border selection-gradient-border"></span>
-					{/if}
+			<div
+				class={[
+					'artwork-card-frame',
+					'cover-picker-option-frame',
+					'is-active',
+					focusedOptionIndex === 0 && 'is-focused'
+				]}
+			>
+				{#if focusedOptionIndex === 0}
+					<span class="cover-picker-option-border selection-gradient-border"></span>
+				{/if}
 
-					<button
+				<button
+					class={[
+						'artwork-card-surface',
+						'cover-picker-option',
+						'cover-picker-upload-option',
+						focusedOptionIndex === 0 && 'selection-highlight-sweep'
+					]}
+					type="button"
+					aria-label={`Upload local cover image for ${game.title}`}
+					aria-current={focusedOptionIndex === 0 ? 'true' : undefined}
+					disabled={isSelecting}
+					onclick={onUploadLocal}
+				>
+					<Upload aria-hidden="true" />
+					<span>Upload image</span>
+				</button>
+			</div>
+
+			{#if pickerState === 'ready'}
+				{#each options as option, index (option.id)}
+					{@const optionIndex = index + 1}
+					<div
 						class={[
-							'cover-picker-option',
-							focusedOptionIndex === index && 'selection-highlight-sweep'
+							'artwork-card-frame',
+							'cover-picker-option-frame',
+							'is-active',
+							focusedOptionIndex === optionIndex && 'is-focused'
 						]}
-						type="button"
-						aria-label={`Use cover option ${index + 1} for ${game.title}`}
-						aria-current={focusedOptionIndex === index ? 'true' : undefined}
-						disabled={isSelecting}
-						onclick={() => handleSelect(option)}
 					>
-						<img
-							src={option.thumbnailUrl ?? option.url}
-							alt={`Cover option ${index + 1} for ${game.title}`}
-							class="cover-picker-image"
-							loading="lazy"
-							decoding="async"
-							draggable="false"
-						/>
-					</button>
-				</div>
-			{/each}
+						{#if focusedOptionIndex === optionIndex}
+							<span class="cover-picker-option-border selection-gradient-border"></span>
+						{/if}
+
+						<button
+							class={[
+								'artwork-card-surface',
+								'cover-picker-option',
+								focusedOptionIndex === optionIndex && 'selection-highlight-sweep'
+							]}
+							type="button"
+							aria-label={`Use cover option ${index + 1} for ${game.title}`}
+							aria-current={focusedOptionIndex === optionIndex ? 'true' : undefined}
+							disabled={isSelecting}
+							onclick={() => handleSelect(option)}
+						>
+							<img
+								src={option.thumbnailUrl ?? option.url}
+								alt={`Cover option ${index + 1} for ${game.title}`}
+								class="cover-picker-image"
+								loading="lazy"
+								decoding="async"
+								draggable="false"
+							/>
+						</button>
+					</div>
+				{/each}
+			{/if}
 		</div>
+
+		{#if pickerState === 'error'}
+			<div class="cover-picker-state" role="alert">{error}</div>
+		{:else if pickerState === 'empty'}
+			<div class="cover-picker-state">No covers found.</div>
+		{/if}
 	{/if}
 </div>
 
@@ -311,27 +361,20 @@
 	}
 
 	.cover-picker-option-frame {
-		--selection-gradient-border-radius: 0.65rem;
-		--selection-gradient-border-width: 3px;
+		--artwork-card-size: 100%;
+		--artwork-card-frame-padding: 5px;
+		--artwork-card-border-width: 3px;
+		--artwork-card-border-radius: 28px;
+		--artwork-card-cover-radius: 24px;
+		--artwork-card-border-reveal-end: 0;
+		--artwork-card-inactive-scale: 1;
+		--artwork-card-focus-ease: cubic-bezier(0.37, 0, 0.63, 1);
 
-		position: relative;
 		aspect-ratio: 1;
-		padding: 3px;
-		border-radius: 0.65rem;
-		transition: transform 130ms ease;
-	}
-
-	.cover-picker-option-frame.is-focused {
-		transform: translate3d(0, -0.16rem, 0);
+		height: auto;
 	}
 
 	.cover-picker-option {
-		position: relative;
-		z-index: 1;
-		width: 100%;
-		height: 100%;
-		overflow: hidden;
-		border-radius: 0.45rem;
 		background: rgb(255 255 255 / 0.08);
 	}
 
@@ -339,9 +382,10 @@
 		cursor: default;
 	}
 
+	.cover-picker-option:focus,
 	.cover-picker-option:focus-visible {
-		outline: 3px solid rgb(255 255 255 / 0.9);
-		outline-offset: 4px;
+		outline: none;
+		box-shadow: none;
 	}
 
 	.cover-picker-option-border {
@@ -352,6 +396,22 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+	}
+
+	.cover-picker-upload-option {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.7rem;
+		color: rgb(255 255 255 / 0.82);
+		font-size: 1rem;
+		font-weight: 600;
+	}
+
+	.cover-picker-upload-option :global(svg) {
+		width: 2rem;
+		height: 2rem;
 	}
 
 	.cover-picker-state {

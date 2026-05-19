@@ -2,7 +2,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ListSquareGridOptionsResult } from '$lib/features/games/artwork';
+import type {
+	ListSquareGridOptionsResult,
+	SetArtworkOverrideResult
+} from '$lib/features/games/artwork';
 import type { LibraryGameRecord, LibraryLaunchResult } from '$lib/features/games/library';
 import { mockGames } from '$lib/features/games/mock-games';
 import {
@@ -19,6 +22,18 @@ const listGames = vi.fn<() => Promise<LibraryGameRecord[]>>();
 const getScanProgress = vi.fn();
 const onScanProgress = vi.fn();
 const listSquareGridOptions = vi.fn<(gameId: string) => Promise<ListSquareGridOptionsResult>>();
+const pickLocalImageOverride =
+	vi.fn<(gameId: string, kind: 'cover' | 'background') => Promise<SetArtworkOverrideResult>>();
+const setSteamGridDbImageOverride =
+	vi.fn<
+		(options: {
+			gameId: string;
+			kind: 'cover' | 'background';
+			imageUrl: string;
+			imageId?: number | string;
+			originalFileName?: string;
+		}) => Promise<SetArtworkOverrideResult>
+	>();
 const COVER_OPTIONS_BUTTON_NAME = 'Game cover options';
 const UPDATE_COVER_MENU_ITEM_NAME = 'Update cover image';
 const UPDATE_BACKGROUND_MENU_ITEM_NAME = 'Update background image';
@@ -124,6 +139,34 @@ describe('home page', () => {
 				}
 			]
 		});
+		pickLocalImageOverride.mockImplementation(async (gameId, kind) => ({
+			ok: true,
+			override: {
+				gameId,
+				kind,
+				imageUrl: `nexus-artwork://local/custom-${kind}`,
+				storagePath: `artwork/overrides/${gameId}/${kind}.png`,
+				source: 'local-file',
+				originalFileName: `${kind}.png`,
+				contentHash: `${kind}-hash`,
+				updatedAt: '2026-05-18T00:00:00.000Z'
+			}
+		}));
+		setSteamGridDbImageOverride.mockImplementation(async (options) => ({
+			ok: true,
+			override: {
+				gameId: options.gameId,
+				kind: options.kind,
+				imageUrl: `nexus-artwork://local/steamgriddb-${options.imageId}`,
+				storagePath: `artwork/overrides/${options.gameId}/${options.kind}.png`,
+				source: 'steamgriddb',
+				sourceUrl: options.imageUrl,
+				sourceId: String(options.imageId),
+				originalFileName: options.originalFileName,
+				contentHash: `${options.imageId}-hash`,
+				updatedAt: '2026-05-18T00:00:00.000Z'
+			}
+		}));
 		window.api = {
 			library: {
 				listGames,
@@ -133,7 +176,9 @@ describe('home page', () => {
 				launchGame
 			},
 			artwork: {
-				listSquareGridOptions
+				listSquareGridOptions,
+				pickLocalImageOverride,
+				setSteamGridDbImageOverride
 			}
 		};
 	});
@@ -334,10 +379,14 @@ describe('home page', () => {
 		const selectedCover = container.querySelector(
 			'.home-rail-item.is-selected [data-game-cover] img'
 		);
-		expect(selectedCover).toHaveAttribute(
-			'src',
-			'https://images.example.test/cyberpunk-square.png'
-		);
+		expect(setSteamGridDbImageOverride).toHaveBeenCalledWith({
+			gameId: mockGames[0]?.id,
+			kind: 'cover',
+			imageUrl: 'https://images.example.test/cyberpunk-square.png',
+			imageId: 1,
+			originalFileName: 'cyberpunk-square.png'
+		});
+		expect(selectedCover).toHaveAttribute('src', 'nexus-artwork://local/steamgriddb-1');
 	});
 
 	it('routes directional and confirm input to the open cover picker', async () => {
@@ -387,10 +436,14 @@ describe('home page', () => {
 		const selectedCover = container.querySelector(
 			'.home-rail-item.is-selected [data-game-cover] img'
 		);
-		expect(selectedCover).toHaveAttribute(
-			'src',
-			'https://images.example.test/cyberpunk-square-alt.png'
-		);
+		expect(setSteamGridDbImageOverride).toHaveBeenCalledWith({
+			gameId: mockGames[0]?.id,
+			kind: 'cover',
+			imageUrl: 'https://images.example.test/cyberpunk-square.png',
+			imageId: 1,
+			originalFileName: 'cyberpunk-square.png'
+		});
+		expect(selectedCover).toHaveAttribute('src', 'nexus-artwork://local/steamgriddb-1');
 
 		emitInput(INPUT_ACTIONS.cancel);
 
@@ -400,6 +453,71 @@ describe('home page', () => {
 				screen.getByRole('button', { name: mockGames[0]?.title ?? '' }).closest('.game-card')
 			).toHaveClass('is-active', 'is-focused');
 		});
+	});
+
+	it('supports uploading a local cover image from the cover picker', async () => {
+		const { default: HomePage } = await import('./+page.svelte');
+		const { container } = render(HomePage);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: COVER_OPTIONS_BUTTON_NAME })).toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.moveDown);
+		emitInput(INPUT_ACTIONS.moveRight);
+		emitInput(INPUT_ACTIONS.confirm);
+		emitInput(INPUT_ACTIONS.confirm);
+
+		await waitFor(() => {
+			expect(screen.getByRole('dialog', { name: mockGames[0]?.title })).toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.confirm);
+
+		await waitFor(() => {
+			expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+		});
+
+		expect(pickLocalImageOverride).toHaveBeenCalledWith(mockGames[0]?.id, 'cover');
+		const selectedCover = container.querySelector(
+			'.home-rail-item.is-selected [data-game-cover] img'
+		);
+		expect(selectedCover).toHaveAttribute('src', 'nexus-artwork://local/custom-cover');
+	});
+
+	it('keeps local cover upload available when SteamGridDB lookup fails', async () => {
+		listSquareGridOptions.mockResolvedValueOnce({
+			ok: false,
+			reason: 'missing-api-key',
+			error: 'SteamGridDB API key is not configured.'
+		});
+		const { default: HomePage } = await import('./+page.svelte');
+		const { container } = render(HomePage);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: COVER_OPTIONS_BUTTON_NAME })).toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.moveDown);
+		emitInput(INPUT_ACTIONS.moveRight);
+		emitInput(INPUT_ACTIONS.confirm);
+		emitInput(INPUT_ACTIONS.confirm);
+
+		await waitFor(() => {
+			expect(screen.getByRole('alert')).toHaveTextContent('SteamGridDB API key is not configured.');
+		});
+
+		emitInput(INPUT_ACTIONS.confirm);
+
+		await waitFor(() => {
+			expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+		});
+
+		expect(pickLocalImageOverride).toHaveBeenCalledWith(mockGames[0]?.id, 'cover');
+		const selectedCover = container.querySelector(
+			'.home-rail-item.is-selected [data-game-cover] img'
+		);
+		expect(selectedCover).toHaveAttribute('src', 'nexus-artwork://local/custom-cover');
 	});
 
 	it('closes the open cover picker on cancel input and returns control to home', async () => {
@@ -472,9 +590,9 @@ describe('home page', () => {
 		});
 	});
 
-	it('moves focus between cover action popup options without opening unsupported actions', async () => {
+	it('moves focus between cover action popup options and uploads a background image', async () => {
 		const { default: HomePage } = await import('./+page.svelte');
-		render(HomePage);
+		const { container } = render(HomePage);
 
 		await waitFor(() => {
 			expect(screen.getByRole('button', { name: COVER_OPTIONS_BUTTON_NAME })).toBeInTheDocument();
@@ -501,8 +619,13 @@ describe('home page', () => {
 
 		emitInput(INPUT_ACTIONS.confirm);
 
+		await waitFor(() => {
+			expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+		});
 		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-		expect(screen.getByRole('menu')).toBeInTheDocument();
+		expect(pickLocalImageOverride).toHaveBeenCalledWith(mockGames[0]?.id, 'background');
+		const heroImage = container.querySelector('.game-hero-image');
+		expect(heroImage).toHaveAttribute('src', 'nexus-artwork://local/custom-background');
 	});
 
 	it('returns from the action buttons to the home rail on cancel input', async () => {
@@ -544,6 +667,14 @@ describe('home page', () => {
 
 		expect(coverPickerSource).not.toContain(':hover');
 		expect(coverPickerSource).not.toContain('onpointerenter');
+		expect(coverPickerSource).toContain('artwork-card-frame');
+		expect(coverPickerSource).toContain('artwork-card-surface');
+		expect(coverPickerSource).toContain('--artwork-card-frame-padding: 5px');
+		expect(coverPickerSource).toContain('--artwork-card-border-radius: 28px');
+		expect(coverPickerSource).toContain('--artwork-card-cover-radius: 24px');
+		expect(coverPickerSource).not.toContain('.cover-picker-option-frame.is-focused');
+		expect(coverPickerSource).toContain('.cover-picker-option:focus-visible');
+		expect(coverPickerSource).toContain('outline: none');
 		expect(coverActionMenuSource).not.toContain(':hover');
 		expect(coverActionMenuSource).not.toContain('onpointerenter');
 	});

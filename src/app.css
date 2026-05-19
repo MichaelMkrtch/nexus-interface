@@ -184,6 +184,51 @@ body {
 		selection-gradient-border-spin 4000ms linear infinite;
 }
 
+.artwork-card-frame {
+	--artwork-card-size: 11rem;
+	--artwork-card-frame-padding: 5px;
+	--artwork-card-border-width: 3px;
+	--artwork-card-border-radius: 28px;
+	--artwork-card-cover-radius: 24px;
+	--artwork-card-border-reveal-end: 0;
+	--artwork-card-inactive-scale: 0.625;
+	--artwork-card-focus-ease: cubic-bezier(0.37, 0, 0.63, 1);
+	--selection-gradient-border-inset: var(--artwork-card-border-reveal-end);
+	--selection-gradient-border-radius: var(--artwork-card-border-radius);
+	--selection-gradient-border-width: var(--artwork-card-border-width);
+
+	position: relative;
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	width: var(--artwork-card-size);
+	height: var(--artwork-card-size);
+	padding: var(--artwork-card-frame-padding);
+}
+
+.artwork-card-surface {
+	position: relative;
+	z-index: 10;
+	display: block;
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	overflow: hidden;
+	border-radius: var(--artwork-card-cover-radius);
+	transform-origin: 50% 10%;
+	transform: scale(var(--artwork-card-inactive-scale));
+	transition: transform 100ms var(--artwork-card-focus-ease);
+	will-change: transform;
+}
+
+.artwork-card-frame.align-start .artwork-card-surface {
+	transform-origin: 0 0;
+}
+
+.artwork-card-frame.is-active .artwork-card-surface {
+	transform: scale(1);
+}
+
 .selection-highlight-sweep {
 	position: relative;
 	overflow: hidden;
