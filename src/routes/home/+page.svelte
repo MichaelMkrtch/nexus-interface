@@ -18,6 +18,7 @@
 	import {
 		launchHomeGame,
 		loadHomeGames,
+		subscribeToHomeGamesUpdates,
 		type LibraryScanProgressRecord
 	} from '$lib/features/games/library';
 	import type { Game } from '$lib/features/games/types';
@@ -273,6 +274,18 @@
 
 	onMount(() => {
 		void loadGames();
+
+		const unsubscribeFromGameUpdates = subscribeToHomeGamesUpdates((updatedGames) => {
+			games = updatedGames;
+			libraryState = updatedGames.length > 0 ? 'ready' : 'empty';
+			navigation.focusGame(
+				Math.min(navigation.focusedGameIndex, Math.max(0, updatedGames.length - 1))
+			);
+		});
+
+		return () => {
+			unsubscribeFromGameUpdates();
+		};
 	});
 
 	async function loadGames() {
@@ -324,6 +337,12 @@
 		return `${libraryProgress.current} of ${libraryProgress.total}`;
 	}
 
+	function getPlayActionLabel() {
+		const activeGame = games[navigation.focusedGameIndex];
+		if (activeGame?.installState === 'missing') return 'Install Game';
+		return activeGame?.launchable ? 'Play Game' : 'Unavailable';
+	}
+
 	function getArtworkFileName(url: string) {
 		try {
 			return new URL(url).pathname.split('/').filter(Boolean).at(-1);
@@ -360,7 +379,7 @@
 
 			<section class="home-actions">
 				<PlayButton
-					label={games[navigation.focusedGameIndex]?.launchable ? 'Play Game' : 'Unavailable'}
+					label={getPlayActionLabel()}
 					isFocused={navigation.activeSection === HOME_SECTIONS.actions &&
 						navigation.focusedActionIndex === ACTION_INDEX.play}
 					onPress={handlePlayButtonPress}

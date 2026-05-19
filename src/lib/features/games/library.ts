@@ -5,7 +5,8 @@ export type LibraryGameRecord = {
 	id: string;
 	title: string;
 	source: 'steam';
-	installState: 'installed';
+	installState: 'installed' | 'missing';
+	installDirectory?: string;
 	artwork?: {
 		coverUrl?: string;
 		heroUrl?: string;
@@ -13,6 +14,10 @@ export type LibraryGameRecord = {
 	executablePath?: string;
 	executableConfidence: 'high' | 'medium' | 'low' | 'unresolved';
 	launchable: boolean;
+	hidden?: boolean;
+	lastPlayedAt?: string;
+	lastSeenInstalledAt?: string;
+	missingSince?: string;
 };
 
 export type LibraryLaunchResult =
@@ -39,21 +44,65 @@ type LoadHomeGamesOptions = {
 	onScanProgress?: (progress: LibraryScanProgressRecord) => void;
 };
 
+let preloadedHomeGames: Game[] | undefined;
+let preloadHomeGamesPromise: Promise<Game[]> | undefined;
+
+export function resetHomeGamesPreloadForTest() {
+	preloadedHomeGames = undefined;
+	preloadHomeGamesPromise = undefined;
+}
+
+export function preloadHomeGames() {
+	if (preloadedHomeGames) return Promise.resolve(preloadedHomeGames);
+
+	preloadHomeGamesPromise ??= loadHomeGamesFromApi().then((games) => {
+		preloadedHomeGames = games;
+		return games;
+	});
+	return preloadHomeGamesPromise;
+}
+
 export async function loadHomeGames(options: LoadHomeGamesOptions = {}) {
+	if (preloadedHomeGames) return preloadedHomeGames;
+
+	if (preloadHomeGamesPromise) {
+		const libraryApi = getLibraryApi();
+		const unsubscribeFromProgress = options.onScanProgress
+			? subscribeToLibraryProgress(libraryApi, options.onScanProgress)
+			: undefined;
+
+		try {
+			const games = await preloadHomeGamesPromise;
+			preloadedHomeGames = games;
+			return games;
+		} finally {
+			unsubscribeFromProgress?.();
+		}
+	}
+
+	const games = await loadHomeGamesFromApi(options);
+	preloadedHomeGames = games;
+	return games;
+}
+
+async function loadHomeGamesFromApi(options: LoadHomeGamesOptions = {}) {
 	const libraryApi = getLibraryApi();
 	if (!libraryApi) {
 		return mockGames;
 	}
 
-	let receivedLiveProgress = false;
-	const unsubscribeFromProgress = libraryApi.onScanProgress?.((progress) => {
-		receivedLiveProgress = true;
-		options.onScanProgress?.(progress);
-	});
+	const progressState = {
+		receivedLiveProgress: false
+	};
+	const unsubscribeFromProgress = subscribeToLibraryProgress(
+		libraryApi,
+		options.onScanProgress,
+		progressState
+	);
 
 	try {
 		const currentProgress = await libraryApi.getScanProgress?.();
-		if (currentProgress && !receivedLiveProgress) {
+		if (currentProgress && !progressState.receivedLiveProgress) {
 			options.onScanProgress?.(currentProgress);
 		}
 
@@ -62,6 +111,31 @@ export async function loadHomeGames(options: LoadHomeGamesOptions = {}) {
 	} finally {
 		unsubscribeFromProgress?.();
 	}
+}
+
+function subscribeToLibraryProgress(
+	libraryApi: ReturnType<typeof getLibraryApi>,
+	onScanProgress: ((progress: LibraryScanProgressRecord) => void) | undefined,
+	progressState = { receivedLiveProgress: false }
+) {
+	if (!onScanProgress) return undefined;
+
+	return libraryApi?.onScanProgress?.((progress) => {
+		progressState.receivedLiveProgress = true;
+		onScanProgress(progress);
+	});
+}
+
+export function subscribeToHomeGamesUpdates(listener: (games: Game[]) => void) {
+	const libraryApi = getLibraryApi();
+	if (!libraryApi?.onGamesUpdated) return () => {};
+
+	const unsubscribe = libraryApi.onGamesUpdated((libraryGames) => {
+		const games = libraryGames.map(mapLibraryGameToHomeGame);
+		preloadedHomeGames = games;
+		listener(games);
+	});
+	return unsubscribe ?? (() => {});
 }
 
 export async function launchHomeGame(gameId: string) {
@@ -82,7 +156,9 @@ export function mapLibraryGameToHomeGame(game: LibraryGameRecord): Game {
 		title: game.title,
 		cover: game.artwork?.coverUrl,
 		hero: game.artwork?.heroUrl,
-		launchable: game.launchable
+		launchable: game.launchable,
+		lastPlayed: game.lastPlayedAt,
+		installState: game.installState
 	};
 }
 

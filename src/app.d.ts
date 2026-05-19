@@ -21,6 +21,7 @@ declare global {
 				onScanProgress?: (
 					listener: (progress: LibraryScanProgressRecord) => void
 				) => (() => void) | void;
+				onGamesUpdated?: (listener: (games: LibraryGameRecord[]) => void) => (() => void) | void;
 				launchGame: (gameId: string) => Promise<LibraryLaunchResult>;
 			};
 			artwork?: {

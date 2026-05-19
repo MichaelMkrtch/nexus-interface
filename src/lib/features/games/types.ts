@@ -4,5 +4,6 @@ export type Game = {
 	cover?: string;
 	hero?: string;
 	launchable?: boolean;
+	installState?: 'installed' | 'missing';
 	lastPlayed?: string;
 };

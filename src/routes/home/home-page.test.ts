@@ -6,7 +6,11 @@ import type {
 	ListSquareGridOptionsResult,
 	SetArtworkOverrideResult
 } from '$lib/features/games/artwork';
-import type { LibraryGameRecord, LibraryLaunchResult } from '$lib/features/games/library';
+import {
+	resetHomeGamesPreloadForTest,
+	type LibraryGameRecord,
+	type LibraryLaunchResult
+} from '$lib/features/games/library';
 import { mockGames } from '$lib/features/games/mock-games';
 import {
 	INPUT_ACTIONS,
@@ -17,10 +21,12 @@ import {
 } from '$lib/input/contracts';
 
 let runtimeListener: InputListener | undefined;
+let gamesUpdatedListener: ((games: LibraryGameRecord[]) => void) | undefined;
 const launchGame = vi.fn<() => Promise<LibraryLaunchResult>>();
 const listGames = vi.fn<() => Promise<LibraryGameRecord[]>>();
 const getScanProgress = vi.fn();
 const onScanProgress = vi.fn();
+const onGamesUpdated = vi.fn();
 const listSquareGridOptions = vi.fn<(gameId: string) => Promise<ListSquareGridOptionsResult>>();
 const pickLocalImageOverride =
 	vi.fn<(gameId: string, kind: 'cover' | 'background') => Promise<SetArtworkOverrideResult>>();
@@ -103,7 +109,9 @@ function emitRepeatedInput(action: InputEvent['action']) {
 describe('home page', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		resetHomeGamesPreloadForTest();
 		runtimeListener = undefined;
+		gamesUpdatedListener = undefined;
 		window.history.replaceState({}, '', '/home');
 		listGames.mockResolvedValue(libraryGames);
 		getScanProgress.mockResolvedValue({
@@ -111,6 +119,12 @@ describe('home page', () => {
 			message: 'Waiting to scan your local library.'
 		});
 		onScanProgress.mockReturnValue(() => {});
+		onGamesUpdated.mockImplementation((listener) => {
+			gamesUpdatedListener = listener;
+			return () => {
+				gamesUpdatedListener = undefined;
+			};
+		});
 		launchGame.mockResolvedValue({ ok: true, strategy: 'steam-applaunch' });
 		listSquareGridOptions.mockResolvedValue({
 			ok: true,
@@ -173,6 +187,7 @@ describe('home page', () => {
 				refreshGames: listGames,
 				getScanProgress,
 				onScanProgress,
+				onGamesUpdated,
 				launchGame
 			},
 			artwork: {
@@ -338,6 +353,52 @@ describe('home page', () => {
 
 		expect(launchGame).not.toHaveBeenCalled();
 		expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+	});
+
+	it('shows install action copy for saved games that are no longer installed', async () => {
+		listGames.mockResolvedValueOnce([
+			{
+				...libraryGames[0],
+				installState: 'missing',
+				launchable: false
+			},
+			...libraryGames.slice(1)
+		]);
+		const { default: HomePage } = await import('./+page.svelte');
+		render(HomePage);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Install Game' })).toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.moveDown);
+		emitInput(INPUT_ACTIONS.confirm);
+
+		expect(launchGame).not.toHaveBeenCalled();
+	});
+
+	it('updates the rendered library when a background refresh publishes game changes', async () => {
+		const { default: HomePage } = await import('./+page.svelte');
+		render(HomePage);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole('button', { name: libraryGames[0]?.title ?? '' })
+			).toBeInTheDocument();
+		});
+
+		gamesUpdatedListener?.([
+			...libraryGames,
+			{
+				...libraryGames[0],
+				id: 'steam:292030',
+				title: 'The Witcher 3: Wild Hunt'
+			}
+		]);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'The Witcher 3: Wild Hunt' })).toBeInTheDocument();
+		});
 	});
 
 	it('opens SteamGridDB cover options and applies a selected cover locally', async () => {

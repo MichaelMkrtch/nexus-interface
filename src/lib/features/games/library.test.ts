@@ -1,10 +1,12 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mockGames } from './mock-games';
 import {
 	launchHomeGame,
 	loadHomeGames,
 	mapLibraryGameToHomeGame,
+	preloadHomeGames,
+	resetHomeGamesPreloadForTest,
 	type LibraryGameRecord,
 	type LibraryScanProgressRecord
 } from './library';
@@ -23,6 +25,10 @@ const libraryGame: LibraryGameRecord = {
 };
 
 describe('games library client', () => {
+	beforeEach(() => {
+		resetHomeGamesPreloadForTest();
+	});
+
 	it('maps a discovered library record into the home game shape with Steam cache artwork', () => {
 		const mappedGame = mapLibraryGameToHomeGame(libraryGame);
 
@@ -96,6 +102,78 @@ describe('games library client', () => {
 				total: 2
 			});
 			expect(onScanProgress).toHaveBeenCalledTimes(1);
+		} finally {
+			window.api = originalApi;
+		}
+	});
+
+	it('reuses a boot-time preload when the home route asks for games', async () => {
+		const originalApi = window.api;
+		const listGames = vi.fn().mockResolvedValue([libraryGame]);
+		window.api = {
+			library: {
+				listGames,
+				refreshGames: vi.fn(),
+				getScanProgress: vi.fn(),
+				onScanProgress: vi.fn(),
+				launchGame: vi.fn()
+			}
+		};
+
+		try {
+			await preloadHomeGames();
+			await expect(loadHomeGames()).resolves.toHaveLength(1);
+			expect(listGames).toHaveBeenCalledTimes(1);
+		} finally {
+			window.api = originalApi;
+		}
+	});
+
+	it('shares an in-flight boot-time preload with home route progress listeners', async () => {
+		const originalApi = window.api;
+		let resolveGames!: (games: LibraryGameRecord[]) => void;
+		const listGames = vi.fn(
+			() =>
+				new Promise<LibraryGameRecord[]>((resolve) => {
+					resolveGames = resolve;
+				})
+		);
+		const onScanProgress = vi.fn();
+		window.api = {
+			library: {
+				listGames,
+				refreshGames: vi.fn(),
+				getScanProgress: vi.fn(),
+				onScanProgress: vi.fn().mockImplementation((listener) => {
+					listener({
+						phase: 'reading-manifests',
+						message: 'Reading Steam manifests (1/2).',
+						source: 'steam',
+						current: 1,
+						total: 2
+					});
+					return vi.fn();
+				}),
+				launchGame: vi.fn()
+			}
+		};
+
+		try {
+			const preload = preloadHomeGames();
+			const loaded = loadHomeGames({ onScanProgress });
+			await Promise.resolve();
+			resolveGames([libraryGame]);
+
+			await expect(preload).resolves.toHaveLength(1);
+			await expect(loaded).resolves.toHaveLength(1);
+			expect(listGames).toHaveBeenCalledTimes(1);
+			expect(onScanProgress).toHaveBeenCalledWith({
+				phase: 'reading-manifests',
+				message: 'Reading Steam manifests (1/2).',
+				source: 'steam',
+				current: 1,
+				total: 2
+			});
 		} finally {
 			window.api = originalApi;
 		}
