@@ -10,7 +10,11 @@ describe('PlayButton', () => {
 
 		const button = screen.getByRole('button', { name: 'Play Game' });
 		expect(button).toHaveAttribute('aria-current', 'true');
+		expect(button).toHaveClass('selection-highlight-sweep');
 		expect(button.parentElement).toHaveClass('play-button-shell', 'is-focused');
+		expect(button.parentElement?.querySelector('.play-button-border')).toHaveClass(
+			'selection-gradient-border'
+		);
 	});
 
 	it('renders a custom label and forwards pointer and click interactions', async () => {

@@ -16,8 +16,17 @@ body {
 
 @custom-variant dark (&:is(.dark *));
 
+@property --selection-gradient-border-angle {
+	syntax: '<angle>';
+	inherits: false;
+	initial-value: 0deg;
+}
+
 :root {
 	--radius: 0.625rem;
+	--selection-highlight-delay: 2000ms;
+	--selection-highlight-cycle: 4000ms;
+	--selection-highlight-rotation: 4deg;
 	--background: oklch(1 0 0);
 	--foreground: oklch(0.145 0 0);
 	--card: oklch(1 0 0);
@@ -137,5 +146,104 @@ body {
 	}
 	html {
 		@apply font-sans;
+	}
+}
+
+.selection-gradient-border {
+	--selection-gradient-border-width: 3px;
+	--selection-gradient-border-radius: inherit;
+	--selection-gradient-border-inset: 0;
+	--selection-gradient-border-reveal-duration: 200ms;
+	--selection-gradient-border-reveal-scale: 0.95;
+	--selection-gradient-border-angle: 0deg;
+
+	position: absolute;
+	z-index: 0;
+	inset: var(--selection-gradient-border-inset);
+	border-radius: var(--selection-gradient-border-radius);
+	padding: var(--selection-gradient-border-width);
+	background: conic-gradient(
+		from var(--selection-gradient-border-angle),
+		oklch(81.1% 0.111 293.571),
+		oklch(83.7% 0.128 66.29),
+		oklch(81.1% 0.111 293.571)
+	);
+	mask:
+		linear-gradient(#000 0 0) content-box,
+		linear-gradient(#000 0 0);
+	mask-composite: exclude;
+	-webkit-mask:
+		linear-gradient(#000 0 0) content-box,
+		linear-gradient(#000 0 0);
+	-webkit-mask-composite: xor;
+	transform-origin: center;
+	will-change: transform, opacity;
+	pointer-events: none;
+	animation:
+		selection-gradient-border-in var(--selection-gradient-border-reveal-duration) ease-out both,
+		selection-gradient-border-spin 4000ms linear infinite;
+}
+
+.selection-highlight-sweep {
+	position: relative;
+	overflow: hidden;
+}
+
+.selection-highlight-sweep::after {
+	content: '';
+	position: absolute;
+	inset: -75%;
+	pointer-events: none;
+	opacity: 0;
+	background: linear-gradient(
+		115deg,
+		transparent 18%,
+		rgb(255 255 255 / 0.05) 35%,
+		rgb(255 255 255 / 0.3) 50%,
+		rgb(255 255 255 / 0.07) 65%,
+		transparent 82%
+	);
+	transform: translate3d(-95%, 0, 0) rotate(var(--selection-highlight-rotation));
+	animation: selection-highlight-sweep var(--selection-highlight-cycle) linear
+		var(--selection-highlight-delay) infinite;
+}
+
+@keyframes selection-highlight-sweep {
+	0% {
+		opacity: 0;
+		transform: translate3d(-95%, 0, 0) rotate(var(--selection-highlight-rotation));
+	}
+
+	6% {
+		opacity: 1;
+	}
+
+	45% {
+		opacity: 1;
+		transform: translate3d(95%, 0, 0) rotate(var(--selection-highlight-rotation));
+	}
+
+	52%,
+	100% {
+		opacity: 0;
+		transform: translate3d(95%, 0, 0) rotate(var(--selection-highlight-rotation));
+	}
+}
+
+@keyframes selection-gradient-border-in {
+	from {
+		opacity: 0;
+		transform: scale(var(--selection-gradient-border-reveal-scale));
+	}
+
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+@keyframes selection-gradient-border-spin {
+	to {
+		--selection-gradient-border-angle: 360deg;
 	}
 }

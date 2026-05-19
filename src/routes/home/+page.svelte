@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 
+	import CoverActionMenu from '$components/home/CoverActionMenu.svelte';
 	import CoverArtPicker from '$components/home/CoverArtPicker.svelte';
 	import GameHero from '$components/home/GameHero.svelte';
 	import Header from '$components/home/Header.svelte';
@@ -29,6 +30,8 @@
 	let launchError = $state('');
 	let libraryProgress = $state<LibraryScanProgressRecord | null>(null);
 	let isLibraryLoadSlow = $state(false);
+	let isCoverActionMenuOpen = $state(false);
+	let focusedCoverActionMenuOptionIndex = $state(0);
 	let isCoverPickerOpen = $state(false);
 	let coverPicker = $state<{ handleInput: (event: InputEvent) => boolean }>();
 
@@ -36,6 +39,11 @@
 		play: 0,
 		coverOptions: 1
 	} as const;
+	const COVER_ACTION_MENU_INDEX = {
+		updateCover: 0,
+		updateBackground: 1
+	} as const;
+	const COVER_ACTION_MENU_OPTION_COUNT = 2;
 
 	async function handlePlayGame() {
 		const activeGame = games[navigation.focusedGameIndex];
@@ -58,8 +66,28 @@
 		navigation.focusAction(ACTION_INDEX.coverOptions);
 	}
 
+	function openCoverActionMenu() {
+		launchError = '';
+		navigation.focusAction(ACTION_INDEX.coverOptions);
+		focusedCoverActionMenuOptionIndex = COVER_ACTION_MENU_INDEX.updateCover;
+		isCoverActionMenuOpen = true;
+		inputSurfaceStack.push({
+			id: 'cover-action-menu',
+			handleInput: handleCoverActionMenuInput
+		});
+	}
+
+	function closeCoverActionMenu() {
+		isCoverActionMenuOpen = false;
+		inputSurfaceStack.remove('cover-action-menu');
+		navigation.focusAction(ACTION_INDEX.coverOptions);
+	}
+
 	function openCoverPicker() {
 		launchError = '';
+		if (isCoverActionMenuOpen) {
+			closeCoverActionMenu();
+		}
 		isCoverPickerOpen = true;
 		inputSurfaceStack.push({
 			id: 'cover-picker',
@@ -94,7 +122,7 @@
 			if (actionIndex === ACTION_INDEX.play) {
 				void handlePlayGame();
 			} else if (actionIndex === ACTION_INDEX.coverOptions) {
-				openCoverPicker();
+				openCoverActionMenu();
 			}
 		}
 	});
@@ -130,6 +158,36 @@
 		if (event.action === INPUT_ACTIONS.cancel) {
 			closeCoverPicker();
 		}
+	}
+
+	function handleCoverActionMenuInput(event: InputEvent) {
+		if (event.action === INPUT_ACTIONS.cancel) {
+			closeCoverActionMenu();
+			return;
+		}
+
+		if (event.action === INPUT_ACTIONS.moveUp) {
+			moveCoverActionMenuFocus(-1);
+			return;
+		}
+
+		if (event.action === INPUT_ACTIONS.moveDown) {
+			moveCoverActionMenuFocus(1);
+			return;
+		}
+
+		if (event.action === INPUT_ACTIONS.confirm) {
+			if (focusedCoverActionMenuOptionIndex === COVER_ACTION_MENU_INDEX.updateCover) {
+				openCoverPicker();
+			}
+		}
+	}
+
+	function moveCoverActionMenuFocus(delta: number) {
+		focusedCoverActionMenuOptionIndex = Math.max(
+			0,
+			Math.min(focusedCoverActionMenuOptionIndex + delta, COVER_ACTION_MENU_OPTION_COUNT - 1)
+		);
 	}
 
 	function shouldRepeatHomeInput(event: InputEvent) {
@@ -238,13 +296,22 @@
 					onPress={handlePlayButtonPress}
 					onConfirm={handlePlayGame}
 				/>
-				<IconActionButton
-					label="Change cover artwork"
-					isFocused={navigation.activeSection === HOME_SECTIONS.actions &&
-						navigation.focusedActionIndex === ACTION_INDEX.coverOptions}
-					onPress={handleCoverOptionsPress}
-					onConfirm={openCoverPicker}
-				/>
+				<div class="home-cover-action">
+					<IconActionButton
+						label="Game cover options"
+						isFocused={navigation.activeSection === HOME_SECTIONS.actions &&
+							navigation.focusedActionIndex === ACTION_INDEX.coverOptions}
+						onPress={handleCoverOptionsPress}
+						onConfirm={openCoverActionMenu}
+					/>
+
+					{#if isCoverActionMenuOpen}
+						<CoverActionMenu
+							focusedOptionIndex={focusedCoverActionMenuOptionIndex}
+							onUpdateCover={openCoverPicker}
+						/>
+					{/if}
+				</div>
 			</section>
 
 			{#if isCoverPickerOpen && games[navigation.focusedGameIndex]}
@@ -327,13 +394,23 @@
 	}
 
 	.home-actions {
+		--home-action-gap: 1rem;
+
 		position: absolute;
 		left: 11rem;
 		bottom: 11rem;
 		z-index: 30;
 		display: flex;
 		align-items: center;
-		gap: 1rem;
+		gap: var(--home-action-gap);
+	}
+
+	.home-cover-action {
+		--cover-action-menu-top: 5px;
+		--cover-action-menu-gap: var(--home-action-gap);
+		--cover-action-menu-inline-offset: 5px;
+
+		position: relative;
 	}
 
 	.home-library-state {

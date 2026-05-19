@@ -218,23 +218,32 @@
 	{:else}
 		<div class="cover-picker-grid" bind:this={gridElement}>
 			{#each options as option, index (option.id)}
-				<button
-					class={['cover-picker-option', focusedOptionIndex === index && 'is-focused']}
-					type="button"
-					aria-label={`Use cover option ${index + 1} for ${game.title}`}
-					aria-current={focusedOptionIndex === index ? 'true' : undefined}
-					disabled={isSelecting}
-					onclick={() => handleSelect(option)}
-				>
-					<img
-						src={option.thumbnailUrl ?? option.url}
-						alt={`Cover option ${index + 1} for ${game.title}`}
-						class="cover-picker-image"
-						loading="lazy"
-						decoding="async"
-						draggable="false"
-					/>
-				</button>
+				<div class={['cover-picker-option-frame', focusedOptionIndex === index && 'is-focused']}>
+					{#if focusedOptionIndex === index}
+						<span class="cover-picker-option-border selection-gradient-border"></span>
+					{/if}
+
+					<button
+						class={[
+							'cover-picker-option',
+							focusedOptionIndex === index && 'selection-highlight-sweep'
+						]}
+						type="button"
+						aria-label={`Use cover option ${index + 1} for ${game.title}`}
+						aria-current={focusedOptionIndex === index ? 'true' : undefined}
+						disabled={isSelecting}
+						onclick={() => handleSelect(option)}
+					>
+						<img
+							src={option.thumbnailUrl ?? option.url}
+							alt={`Cover option ${index + 1} for ${game.title}`}
+							class="cover-picker-image"
+							loading="lazy"
+							decoding="async"
+							draggable="false"
+						/>
+					</button>
+				</div>
 			{/each}
 		</div>
 	{/if}
@@ -301,15 +310,29 @@
 		scrollbar-width: thin;
 	}
 
-	.cover-picker-option {
+	.cover-picker-option-frame {
+		--selection-gradient-border-radius: 0.65rem;
+		--selection-gradient-border-width: 3px;
+
+		position: relative;
 		aspect-ratio: 1;
-		overflow: hidden;
-		border: 2px solid rgb(255 255 255 / 0.1);
+		padding: 3px;
 		border-radius: 0.65rem;
+		transition: transform 130ms ease;
+	}
+
+	.cover-picker-option-frame.is-focused {
+		transform: translate3d(0, -0.16rem, 0);
+	}
+
+	.cover-picker-option {
+		position: relative;
+		z-index: 1;
+		width: 100%;
+		height: 100%;
+		overflow: hidden;
+		border-radius: 0.45rem;
 		background: rgb(255 255 255 / 0.08);
-		transition:
-			border-color 130ms ease,
-			transform 130ms ease;
 	}
 
 	.cover-picker-option:disabled {
@@ -321,10 +344,8 @@
 		outline-offset: 4px;
 	}
 
-	.cover-picker-option.is-focused {
-		border-color: rgb(255 255 255 / 0.82);
-		box-shadow: 0 0 0 4px rgb(255 255 255 / 0.16);
-		transform: translate3d(0, -0.16rem, 0);
+	.cover-picker-option-border {
+		z-index: 0;
 	}
 
 	.cover-picker-image {

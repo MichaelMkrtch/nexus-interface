@@ -12,8 +12,12 @@
 </script>
 
 <div class={['icon-action-shell', isFocused && 'is-focused']}>
+	{#if isFocused}
+		<span class="icon-action-border selection-gradient-border"></span>
+	{/if}
+
 	<button
-		class="icon-action-button"
+		class={['icon-action-button', isFocused && 'selection-highlight-sweep']}
 		type="button"
 		tabindex="-1"
 		aria-label={label}
@@ -26,16 +30,11 @@
 </div>
 
 <style>
-	@property --icon-action-border-angle {
-		syntax: '<angle>';
-		inherits: false;
-		initial-value: 0deg;
-	}
-
 	.icon-action-shell {
 		--icon-action-gap: 5px;
 		--icon-action-border-width: 3px;
-		--icon-action-border-angle: 0deg;
+		--selection-gradient-border-radius: 9999px;
+		--selection-gradient-border-width: var(--icon-action-border-width);
 
 		position: relative;
 		display: inline-flex;
@@ -69,33 +68,7 @@
 		outline: none;
 	}
 
-	.icon-action-shell.is-focused::before {
-		content: '';
-		position: absolute;
+	.icon-action-border {
 		z-index: 0;
-		inset: 0;
-		border-radius: 9999px;
-		padding: var(--icon-action-border-width);
-		background: conic-gradient(
-			from var(--icon-action-border-angle),
-			oklch(81.1% 0.111 293.571),
-			oklch(83.7% 0.128 66.29),
-			oklch(81.1% 0.111 293.571)
-		);
-		mask:
-			linear-gradient(#000 0 0) content-box,
-			linear-gradient(#000 0 0);
-		mask-composite: exclude;
-		-webkit-mask:
-			linear-gradient(#000 0 0) content-box,
-			linear-gradient(#000 0 0);
-		-webkit-mask-composite: xor;
-		animation: icon-action-border-spin 4000ms linear infinite;
-	}
-
-	@keyframes icon-action-border-spin {
-		to {
-			--icon-action-border-angle: 360deg;
-		}
 	}
 </style>

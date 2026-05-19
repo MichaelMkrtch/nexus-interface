@@ -19,6 +19,9 @@ const listGames = vi.fn<() => Promise<LibraryGameRecord[]>>();
 const getScanProgress = vi.fn();
 const onScanProgress = vi.fn();
 const listSquareGridOptions = vi.fn<(gameId: string) => Promise<ListSquareGridOptionsResult>>();
+const COVER_OPTIONS_BUTTON_NAME = 'Game cover options';
+const UPDATE_COVER_MENU_ITEM_NAME = 'Update cover image';
+const UPDATE_BACKGROUND_MENU_ITEM_NAME = 'Update background image';
 
 const libraryGames: LibraryGameRecord[] = mockGames.map((game) => ({
 	id: game.id,
@@ -297,12 +300,21 @@ describe('home page', () => {
 		const { container } = render(HomePage);
 
 		await waitFor(() => {
-			expect(screen.getByRole('button', { name: 'Change cover artwork' })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: COVER_OPTIONS_BUTTON_NAME })).toBeInTheDocument();
 		});
 
-		const coverButton = screen.getByRole('button', { name: 'Change cover artwork' });
+		const coverButton = screen.getByRole('button', { name: COVER_OPTIONS_BUTTON_NAME });
 		await fireEvent.pointerDown(coverButton);
 		await fireEvent.click(coverButton);
+
+		await waitFor(() => {
+			expect(screen.getByRole('menu', { name: 'Game cover options' })).toBeInTheDocument();
+			expect(
+				screen.getByRole('menuitem', { name: UPDATE_BACKGROUND_MENU_ITEM_NAME })
+			).toBeInTheDocument();
+		});
+
+		await fireEvent.click(screen.getByRole('menuitem', { name: UPDATE_COVER_MENU_ITEM_NAME }));
 
 		await waitFor(() => {
 			expect(listSquareGridOptions).toHaveBeenCalledWith(mockGames[0]?.id);
@@ -333,11 +345,23 @@ describe('home page', () => {
 		const { container } = render(HomePage);
 
 		await waitFor(() => {
-			expect(screen.getByRole('button', { name: 'Change cover artwork' })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: COVER_OPTIONS_BUTTON_NAME })).toBeInTheDocument();
 		});
 
 		emitInput(INPUT_ACTIONS.moveDown);
 		emitInput(INPUT_ACTIONS.moveRight);
+		emitInput(INPUT_ACTIONS.confirm);
+
+		await waitFor(() => {
+			expect(screen.getByRole('menuitem', { name: UPDATE_COVER_MENU_ITEM_NAME })).toHaveAttribute(
+				'aria-current',
+				'true'
+			);
+			expect(
+				screen.getByRole('menuitem', { name: UPDATE_BACKGROUND_MENU_ITEM_NAME })
+			).not.toHaveAttribute('aria-current');
+		});
+
 		emitInput(INPUT_ACTIONS.confirm);
 
 		await waitFor(() => {
@@ -355,7 +379,7 @@ describe('home page', () => {
 		emitInput(INPUT_ACTIONS.confirm, { phase: INPUT_PHASES.release });
 
 		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Change cover artwork' })).toHaveAttribute(
+		expect(screen.getByRole('button', { name: COVER_OPTIONS_BUTTON_NAME })).toHaveAttribute(
 			'aria-current',
 			'true'
 		);
@@ -383,11 +407,12 @@ describe('home page', () => {
 		render(HomePage);
 
 		await waitFor(() => {
-			expect(screen.getByRole('button', { name: 'Change cover artwork' })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: COVER_OPTIONS_BUTTON_NAME })).toBeInTheDocument();
 		});
 
 		emitInput(INPUT_ACTIONS.moveDown);
 		emitInput(INPUT_ACTIONS.moveRight);
+		emitInput(INPUT_ACTIONS.confirm);
 		emitInput(INPUT_ACTIONS.confirm);
 
 		await waitFor(() => {
@@ -403,7 +428,7 @@ describe('home page', () => {
 		emitInput(INPUT_ACTIONS.cancel, { phase: INPUT_PHASES.release });
 
 		await waitFor(() => {
-			expect(screen.getByRole('button', { name: 'Change cover artwork' })).toHaveAttribute(
+			expect(screen.getByRole('button', { name: COVER_OPTIONS_BUTTON_NAME })).toHaveAttribute(
 				'aria-current',
 				'true'
 			);
@@ -417,6 +442,67 @@ describe('home page', () => {
 				'true'
 			);
 		});
+	});
+
+	it('closes the cover action popup on cancel input and returns focus to the ellipsis button', async () => {
+		const { default: HomePage } = await import('./+page.svelte');
+		render(HomePage);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: COVER_OPTIONS_BUTTON_NAME })).toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.moveDown);
+		emitInput(INPUT_ACTIONS.moveRight);
+		emitInput(INPUT_ACTIONS.confirm);
+
+		await waitFor(() => {
+			expect(screen.getByRole('menu', { name: 'Game cover options' })).toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.cancel);
+		emitInput(INPUT_ACTIONS.cancel, { phase: INPUT_PHASES.release });
+
+		await waitFor(() => {
+			expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+			expect(screen.getByRole('button', { name: COVER_OPTIONS_BUTTON_NAME })).toHaveAttribute(
+				'aria-current',
+				'true'
+			);
+		});
+	});
+
+	it('moves focus between cover action popup options without opening unsupported actions', async () => {
+		const { default: HomePage } = await import('./+page.svelte');
+		render(HomePage);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: COVER_OPTIONS_BUTTON_NAME })).toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.moveDown);
+		emitInput(INPUT_ACTIONS.moveRight);
+		emitInput(INPUT_ACTIONS.confirm);
+
+		await waitFor(() => {
+			expect(screen.getByRole('menuitem', { name: UPDATE_COVER_MENU_ITEM_NAME })).toHaveAttribute(
+				'aria-current',
+				'true'
+			);
+		});
+
+		emitInput(INPUT_ACTIONS.moveDown);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole('menuitem', { name: UPDATE_BACKGROUND_MENU_ITEM_NAME })
+			).toHaveAttribute('aria-current', 'true');
+		});
+
+		emitInput(INPUT_ACTIONS.confirm);
+
+		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+		expect(screen.getByRole('menu')).toBeInTheDocument();
 	});
 
 	it('returns from the action buttons to the home rail on cancel input', async () => {
@@ -447,12 +533,18 @@ describe('home page', () => {
 	});
 
 	it('does not define mouse-hover behavior for the cover picker', () => {
-		const source = readFileSync(
+		const coverPickerSource = readFileSync(
 			'C:/Users/Michael/Developer/Projects/nexus/interface/src/lib/components/home/CoverArtPicker.svelte',
 			'utf8'
 		);
+		const coverActionMenuSource = readFileSync(
+			'C:/Users/Michael/Developer/Projects/nexus/interface/src/lib/components/home/CoverActionMenu.svelte',
+			'utf8'
+		);
 
-		expect(source).not.toContain(':hover');
-		expect(source).not.toContain('onpointerenter');
+		expect(coverPickerSource).not.toContain(':hover');
+		expect(coverPickerSource).not.toContain('onpointerenter');
+		expect(coverActionMenuSource).not.toContain(':hover');
+		expect(coverActionMenuSource).not.toContain('onpointerenter');
 	});
 });

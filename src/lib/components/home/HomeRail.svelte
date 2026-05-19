@@ -152,7 +152,7 @@
 		{#if isTitleVisible}
 			{#key displayedTitleIndex}
 				<div class="home-rail-title">
-					<h2 class="text-2xl font-semibold text-white">
+					<h2 class="text-2xl font-medium text-white">
 						{games[displayedTitleIndex]?.title}
 					</h2>
 				</div>
