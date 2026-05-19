@@ -124,7 +124,7 @@
 	}
 
 	.game-card.is-focused .game-card-button::after {
-		animation: active-card-shine 4500ms linear 2000ms infinite;
+		animation: active-card-shine 10000ms linear 2000ms infinite;
 	}
 
 	.active-card-border {

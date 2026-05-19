@@ -20,11 +20,19 @@ export const INPUT_ACTIONS = {
 
 export type InputAction = (typeof INPUT_ACTIONS)[keyof typeof INPUT_ACTIONS];
 
+export const INPUT_PHASES = {
+	press: 'press',
+	release: 'release'
+} as const;
+
+export type InputPhase = (typeof INPUT_PHASES)[keyof typeof INPUT_PHASES];
+
 export type InputEvent = {
 	action: InputAction;
 	source: InputSource;
 	at: number;
 	repeat: boolean;
+	phase?: InputPhase;
 };
 
 export type InputDispatch = (event: InputEvent) => void;

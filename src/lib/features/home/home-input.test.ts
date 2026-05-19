@@ -4,7 +4,14 @@ import { INPUT_ACTIONS, INPUT_SOURCES, type InputEvent } from '$lib/input/contra
 
 import type { HomeNav } from './home-navigation.svelte';
 
+import { HOME_MOVE_DIRECTIONS } from './home-navigation.svelte';
 import { createHomeInputHandler } from './home-input';
+
+const FIRST_CALL = 1;
+const SECOND_CALL = 2;
+const THIRD_CALL = 3;
+const FOURTH_CALL = 4;
+const ONCE = 1;
 
 function createInputEvent(action: InputEvent['action']): InputEvent {
 	return {
@@ -38,10 +45,10 @@ describe('createHomeInputHandler', () => {
 		handleInput(createInputEvent(INPUT_ACTIONS.moveDown));
 
 		expect(navigation.move).toHaveBeenCalledTimes(4);
-		expect(navigation.move).toHaveBeenNthCalledWith(1, 'left');
-		expect(navigation.move).toHaveBeenNthCalledWith(2, 'right');
-		expect(navigation.move).toHaveBeenNthCalledWith(3, 'up');
-		expect(navigation.move).toHaveBeenNthCalledWith(4, 'down');
+		expect(navigation.move).toHaveBeenNthCalledWith(FIRST_CALL, HOME_MOVE_DIRECTIONS.left);
+		expect(navigation.move).toHaveBeenNthCalledWith(SECOND_CALL, HOME_MOVE_DIRECTIONS.right);
+		expect(navigation.move).toHaveBeenNthCalledWith(THIRD_CALL, HOME_MOVE_DIRECTIONS.up);
+		expect(navigation.move).toHaveBeenNthCalledWith(FOURTH_CALL, HOME_MOVE_DIRECTIONS.down);
 	});
 
 	it('routes confirm actions and ignores unrelated input actions', () => {
@@ -52,7 +59,7 @@ describe('createHomeInputHandler', () => {
 		handleInput(createInputEvent(INPUT_ACTIONS.cancel));
 		handleInput(createInputEvent(INPUT_ACTIONS.options));
 
-		expect(navigation.confirm).toHaveBeenCalledTimes(1);
+		expect(navigation.confirm).toHaveBeenCalledTimes(ONCE);
 		expect(navigation.move).not.toHaveBeenCalled();
 	});
 });

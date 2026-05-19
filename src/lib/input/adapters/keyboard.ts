@@ -1,6 +1,6 @@
 import type { InputAction, InputAdapter } from '../contracts';
 
-import { INPUT_ACTIONS, INPUT_SOURCES } from '../contracts';
+import { INPUT_ACTIONS, INPUT_PHASES, INPUT_SOURCES } from '../contracts';
 
 const KEYBOARD_ACTIONS: Partial<Record<string, InputAction>> = {
 	ArrowLeft: INPUT_ACTIONS.moveLeft,
@@ -9,7 +9,9 @@ const KEYBOARD_ACTIONS: Partial<Record<string, InputAction>> = {
 	ArrowDown: INPUT_ACTIONS.moveDown,
 	Enter: INPUT_ACTIONS.confirm,
 	' ': INPUT_ACTIONS.confirm,
-	Escape: INPUT_ACTIONS.cancel
+	Escape: INPUT_ACTIONS.cancel,
+	o: INPUT_ACTIONS.cancel,
+	O: INPUT_ACTIONS.cancel
 };
 
 const REPEATABLE_ACTIONS = new Set<InputAction>([
@@ -47,14 +49,33 @@ export function createKeyboardInputAdapter(): InputAdapter {
 					action,
 					source: INPUT_SOURCES.keyboard,
 					at: performance.now(),
-					repeat: event.repeat
+					repeat: event.repeat,
+					phase: INPUT_PHASES.press
+				});
+			};
+
+			const handleKeyup = (event: KeyboardEvent) => {
+				if (isEditableTarget(event.target)) return;
+
+				const action = KEYBOARD_ACTIONS[event.key];
+				if (!action) return;
+
+				event.preventDefault();
+				dispatch({
+					action,
+					source: INPUT_SOURCES.keyboard,
+					at: performance.now(),
+					repeat: false,
+					phase: INPUT_PHASES.release
 				});
 			};
 
 			window.addEventListener('keydown', handleKeydown);
+			window.addEventListener('keyup', handleKeyup);
 
 			return () => {
 				window.removeEventListener('keydown', handleKeydown);
+				window.removeEventListener('keyup', handleKeyup);
 			};
 		}
 	};

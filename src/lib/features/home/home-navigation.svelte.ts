@@ -3,8 +3,15 @@ export const HOME_SECTIONS = {
 	actions: 'actions'
 } as const;
 
+export const HOME_MOVE_DIRECTIONS = {
+	left: 'left',
+	right: 'right',
+	up: 'up',
+	down: 'down'
+} as const;
+
 export type HomeSection = (typeof HOME_SECTIONS)[keyof typeof HOME_SECTIONS];
-export type Move = 'left' | 'right' | 'up' | 'down';
+export type Move = (typeof HOME_MOVE_DIRECTIONS)[keyof typeof HOME_MOVE_DIRECTIONS];
 
 type Options = {
 	gameCount: number | (() => number);
@@ -18,7 +25,7 @@ export type HomeNav = {
 	readonly focusedActionIndex: number;
 	focusGame: (index: number) => void;
 	focusAction: (index: number) => void;
-	move: (direction: Move) => void;
+	move: (direction: Move, distance?: number) => void;
 	confirm: () => void;
 };
 
@@ -72,8 +79,8 @@ export function createHomeNavigation({
 		setActiveSection(HOME_SECTIONS.actions);
 	}
 
-	function moveWithinSection(delta: number) {
-		setIndex(activeSection, indices[activeSection] + delta);
+	function moveWithinSection(delta: number, distance = 1) {
+		setIndex(activeSection, indices[activeSection] + delta * distance);
 	}
 
 	function moveBetweenSections(delta: number) {
@@ -86,11 +93,11 @@ export function createHomeNavigation({
 		setActiveSection(nextSection);
 	}
 
-	function move(direction: Move) {
+	function move(direction: Move, distance = 1) {
 		if (direction === 'left') {
-			moveWithinSection(-1);
+			moveWithinSection(-1, distance);
 		} else if (direction === 'right') {
-			moveWithinSection(1);
+			moveWithinSection(1, distance);
 		} else if (direction === 'down') {
 			moveBetweenSections(1);
 		} else if (direction === 'up') {

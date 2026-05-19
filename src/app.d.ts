@@ -1,3 +1,4 @@
+import type { ListSquareGridOptionsResult } from '$lib/features/games/artwork';
 import type {
 	LibraryGameRecord,
 	LibraryLaunchResult,
@@ -17,6 +18,9 @@ declare global {
 					listener: (progress: LibraryScanProgressRecord) => void
 				) => (() => void) | void;
 				launchGame: (gameId: string) => Promise<LibraryLaunchResult>;
+			};
+			artwork?: {
+				listSquareGridOptions: (gameId: string) => Promise<ListSquareGridOptionsResult>;
 			};
 		};
 	}

@@ -48,6 +48,19 @@ describe('createHomeNavigation', () => {
 		expect(navigation.focusedActionIndex).toBe(1);
 	});
 
+	it('supports accelerated horizontal movement within the active section', () => {
+		const navigation = createHomeNavigation({ gameCount: 10, actionCount: 2 });
+
+		navigation.move('right', 4);
+		expect(navigation.focusedGameIndex).toBe(4);
+
+		navigation.move('right', 20);
+		expect(navigation.focusedGameIndex).toBe(9);
+
+		navigation.move('left', 3);
+		expect(navigation.focusedGameIndex).toBe(6);
+	});
+
 	it('moves vertically between sections without losing each section index', () => {
 		const navigation = createHomeNavigation({ gameCount: 5, actionCount: 3 });
 

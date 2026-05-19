@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { INPUT_ACTIONS, INPUT_SOURCES, type InputEvent } from '../contracts';
+import { INPUT_ACTIONS, INPUT_PHASES, INPUT_SOURCES, type InputEvent } from '../contracts';
 
 import { createKeyboardInputAdapter } from './keyboard';
 
@@ -40,13 +40,15 @@ describe('createKeyboardInputAdapter', () => {
 				action: INPUT_ACTIONS.moveRight,
 				source: INPUT_SOURCES.keyboard,
 				at: 1234,
-				repeat: false
+				repeat: false,
+				phase: INPUT_PHASES.press
 			},
 			{
 				action: INPUT_ACTIONS.moveRight,
 				source: INPUT_SOURCES.keyboard,
 				at: 1234,
-				repeat: true
+				repeat: true,
+				phase: INPUT_PHASES.press
 			}
 		]);
 		expect(firstEvent.defaultPrevented).toBe(true);
@@ -66,6 +68,44 @@ describe('createKeyboardInputAdapter', () => {
 		expect(events).toHaveLength(1);
 		expect(events[0]?.action).toBe(INPUT_ACTIONS.confirm);
 		expect(events[0]?.repeat).toBe(false);
+	});
+
+	it('maps Escape and O to cancel for keyboard parity with controller back buttons', () => {
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
+		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'O', cancelable: true }));
+
+		expect(events).toEqual([
+			{
+				action: INPUT_ACTIONS.cancel,
+				source: INPUT_SOURCES.keyboard,
+				at: 1234,
+				repeat: false,
+				phase: INPUT_PHASES.press
+			},
+			{
+				action: INPUT_ACTIONS.cancel,
+				source: INPUT_SOURCES.keyboard,
+				at: 1234,
+				repeat: false,
+				phase: INPUT_PHASES.press
+			}
+		]);
+	});
+
+	it('dispatches release events for mapped keys', () => {
+		const keyupEvent = new KeyboardEvent('keyup', { key: 'ArrowRight', cancelable: true });
+		window.dispatchEvent(keyupEvent);
+
+		expect(events).toEqual([
+			{
+				action: INPUT_ACTIONS.moveRight,
+				source: INPUT_SOURCES.keyboard,
+				at: 1234,
+				repeat: false,
+				phase: INPUT_PHASES.release
+			}
+		]);
+		expect(keyupEvent.defaultPrevented).toBe(true);
 	});
 
 	it('ignores keys pressed from editable controls', () => {

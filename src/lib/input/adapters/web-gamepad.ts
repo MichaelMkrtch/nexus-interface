@@ -1,6 +1,6 @@
-import type { InputAction, InputAdapter } from '../contracts';
+import type { InputAction, InputAdapter, InputPhase } from '../contracts';
 
-import { INPUT_ACTIONS, INPUT_SOURCES } from '../contracts';
+import { INPUT_ACTIONS, INPUT_PHASES, INPUT_SOURCES } from '../contracts';
 
 type WebGamepadInputAdapterOptions = {
 	initialRepeatDelayMs?: number;
@@ -8,7 +8,7 @@ type WebGamepadInputAdapterOptions = {
 	stickDeadzone?: number;
 };
 
-const DEFAULT_INITIAL_REPEAT_DELAY_MS = 180;
+const DEFAULT_INITIAL_REPEAT_DELAY_MS = 300;
 const DEFAULT_HELD_REPEAT_DELAY_MS = 110;
 const DEFAULT_STICK_DEADZONE = 0.55;
 
@@ -70,17 +70,21 @@ export function createWebGamepadInputAdapter({
 			let nextMoveRepeatDelayMs = initialRepeatDelayMs;
 			let pressedButtons = new Set<InputAction>();
 
-			function emit(action: InputAction, repeat: boolean) {
+			function emit(action: InputAction, repeat: boolean, phase: InputPhase = INPUT_PHASES.press) {
 				dispatch({
 					action,
 					source: INPUT_SOURCES.webGamepad,
 					at: performance.now(),
-					repeat
+					repeat,
+					phase
 				});
 			}
 
 			function updateMoveState(nextAction: InputAction | null, now: number) {
 				if (!nextAction) {
+					if (activeMoveAction) {
+						emit(activeMoveAction, false, INPUT_PHASES.release);
+					}
 					activeMoveAction = null;
 					lastMoveAt = 0;
 					nextMoveRepeatDelayMs = initialRepeatDelayMs;

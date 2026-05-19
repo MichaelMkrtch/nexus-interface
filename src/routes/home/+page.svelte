@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 
+	import CoverArtPicker from '$components/home/CoverArtPicker.svelte';
 	import GameHero from '$components/home/GameHero.svelte';
 	import Header from '$components/home/Header.svelte';
 	import HomeRail from '$components/home/HomeRail.svelte';
+	import IconActionButton from '$components/home/IconActionButton.svelte';
 	import PlayButton from '$components/home/PlayButton.svelte';
 	import {
 		launchHomeGame,
@@ -16,6 +18,7 @@
 	import { createKeyboardInputAdapter } from '$lib/input/adapters/keyboard';
 	import { createWebGamepadInputAdapter } from '$lib/input/adapters/web-gamepad';
 	import { INPUT_ACTIONS, type InputEvent } from '$lib/input/contracts';
+	import { createInputSurfaceStack } from '$lib/input/focus-stack';
 	import { createInputRuntime } from '$lib/input/runtime';
 
 	type LibraryState = 'loading' | 'ready' | 'empty' | 'error';
@@ -26,6 +29,13 @@
 	let launchError = $state('');
 	let libraryProgress = $state<LibraryScanProgressRecord | null>(null);
 	let isLibraryLoadSlow = $state(false);
+	let isCoverPickerOpen = $state(false);
+	let coverPicker = $state<{ handleInput: (event: InputEvent) => boolean }>();
+
+	const ACTION_INDEX = {
+		play: 0,
+		coverOptions: 1
+	} as const;
 
 	async function handlePlayGame() {
 		const activeGame = games[navigation.focusedGameIndex];
@@ -40,7 +50,36 @@
 
 	function handlePlayButtonPress() {
 		launchError = '';
-		navigation.focusAction(0);
+		navigation.focusAction(ACTION_INDEX.play);
+	}
+
+	function handleCoverOptionsPress() {
+		launchError = '';
+		navigation.focusAction(ACTION_INDEX.coverOptions);
+	}
+
+	function openCoverPicker() {
+		launchError = '';
+		isCoverPickerOpen = true;
+		inputSurfaceStack.push({
+			id: 'cover-picker',
+			handleInput: handleCoverPickerInput,
+			shouldRepeatInput: shouldRepeatCoverPickerInput
+		});
+	}
+
+	function closeCoverPicker() {
+		isCoverPickerOpen = false;
+		coverPicker = undefined;
+		inputSurfaceStack.remove('cover-picker');
+	}
+
+	function handleCoverSelect(coverUrl: string) {
+		const activeGame = games[navigation.focusedGameIndex];
+		if (!activeGame) return;
+
+		games = games.map((game) => (game.id === activeGame.id ? { ...game, cover: coverUrl } : game));
+		closeCoverPicker();
 	}
 
 	function handleGameCardPress(index: number) {
@@ -50,23 +89,62 @@
 
 	const navigation = createHomeNavigation({
 		gameCount: () => games.length,
+		actionCount: 2,
 		onConfirmAction: (actionIndex) => {
-			if (actionIndex === 0) {
+			if (actionIndex === ACTION_INDEX.play) {
 				void handlePlayGame();
+			} else if (actionIndex === ACTION_INDEX.coverOptions) {
+				openCoverPicker();
 			}
 		}
 	});
 	const handleHomeInput = createHomeInputHandler({ navigation });
+	const inputSurfaceStack = createInputSurfaceStack({
+		id: 'home',
+		handleInput: handleHomeSurfaceInput,
+		shouldRepeatInput: shouldRepeatHomeInput
+	});
 	const inputRuntime = createInputRuntime({
 		adapters: [createKeyboardInputAdapter(), createWebGamepadInputAdapter()]
 	});
 
-	function dispatchHomeInput(event: InputEvent) {
+	function handleHomeSurfaceInput(event: InputEvent) {
+		if (event.action === INPUT_ACTIONS.cancel) {
+			if (navigation.activeSection === HOME_SECTIONS.actions) {
+				launchError = '';
+				navigation.focusGame(navigation.focusedGameIndex);
+			}
+			return;
+		}
+
 		if (launchError && event.action !== INPUT_ACTIONS.confirm) {
 			launchError = '';
 		}
 
 		handleHomeInput(event);
+	}
+
+	function handleCoverPickerInput(event: InputEvent) {
+		if (coverPicker?.handleInput(event)) return;
+
+		if (event.action === INPUT_ACTIONS.cancel) {
+			closeCoverPicker();
+		}
+	}
+
+	function shouldRepeatHomeInput(event: InputEvent) {
+		return (
+			navigation.activeSection === HOME_SECTIONS.carousel &&
+			(event.action === INPUT_ACTIONS.moveLeft || event.action === INPUT_ACTIONS.moveRight)
+		);
+	}
+
+	function shouldRepeatCoverPickerInput() {
+		return true;
+	}
+
+	function dispatchHomeInput(event: InputEvent) {
+		inputSurfaceStack.dispatch(event);
 	}
 
 	$effect(() => {
@@ -156,11 +234,27 @@
 				<PlayButton
 					label={games[navigation.focusedGameIndex]?.launchable ? 'Play Game' : 'Unavailable'}
 					isFocused={navigation.activeSection === HOME_SECTIONS.actions &&
-						navigation.focusedActionIndex === 0}
+						navigation.focusedActionIndex === ACTION_INDEX.play}
 					onPress={handlePlayButtonPress}
 					onConfirm={handlePlayGame}
 				/>
+				<IconActionButton
+					label="Change cover artwork"
+					isFocused={navigation.activeSection === HOME_SECTIONS.actions &&
+						navigation.focusedActionIndex === ACTION_INDEX.coverOptions}
+					onPress={handleCoverOptionsPress}
+					onConfirm={openCoverPicker}
+				/>
 			</section>
+
+			{#if isCoverPickerOpen && games[navigation.focusedGameIndex]}
+				<CoverArtPicker
+					bind:this={coverPicker}
+					game={games[navigation.focusedGameIndex]}
+					onClose={closeCoverPicker}
+					onSelect={handleCoverSelect}
+				/>
+			{/if}
 
 			{#if launchError}
 				<p class="home-launch-error" role="alert" aria-live="assertive">{launchError}</p>
@@ -237,6 +331,9 @@
 		left: 11rem;
 		bottom: 11rem;
 		z-index: 30;
+		display: flex;
+		align-items: center;
+		gap: 1rem;
 	}
 
 	.home-library-state {

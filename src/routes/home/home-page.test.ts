@@ -1,10 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { mockGames } from '$lib/features/games/mock-games';
+import type { ListSquareGridOptionsResult } from '$lib/features/games/artwork';
 import type { LibraryGameRecord, LibraryLaunchResult } from '$lib/features/games/library';
+import { mockGames } from '$lib/features/games/mock-games';
 import {
 	INPUT_ACTIONS,
+	INPUT_PHASES,
 	INPUT_SOURCES,
 	type InputEvent,
 	type InputListener
@@ -15,6 +18,7 @@ const launchGame = vi.fn<() => Promise<LibraryLaunchResult>>();
 const listGames = vi.fn<() => Promise<LibraryGameRecord[]>>();
 const getScanProgress = vi.fn();
 const onScanProgress = vi.fn();
+const listSquareGridOptions = vi.fn<(gameId: string) => Promise<ListSquareGridOptionsResult>>();
 
 const libraryGames: LibraryGameRecord[] = mockGames.map((game) => ({
 	id: game.id,
@@ -55,12 +59,26 @@ vi.mock('$lib/input/adapters/web-gamepad', () => ({
 	})
 }));
 
-function emitInput(action: InputEvent['action']) {
+function emitInput(
+	action: InputEvent['action'],
+	overrides: Partial<Pick<InputEvent, 'at' | 'repeat' | 'phase'>> = {}
+) {
 	runtimeListener?.({
 		action,
 		source: INPUT_SOURCES.keyboard,
 		at: 100,
-		repeat: false
+		repeat: false,
+		...overrides
+	});
+}
+
+function emitRepeatedInput(action: InputEvent['action']) {
+	runtimeListener?.({
+		action,
+		source: INPUT_SOURCES.keyboard,
+		at: 140,
+		repeat: true,
+		phase: INPUT_PHASES.press
 	});
 }
 
@@ -76,6 +94,33 @@ describe('home page', () => {
 		});
 		onScanProgress.mockReturnValue(() => {});
 		launchGame.mockResolvedValue({ ok: true, strategy: 'steam-applaunch' });
+		listSquareGridOptions.mockResolvedValue({
+			ok: true,
+			options: [
+				{
+					id: 1,
+					url: 'https://images.example.test/cyberpunk-square.png',
+					thumbnailUrl: 'https://images.example.test/cyberpunk-square-thumb.png',
+					width: 1024,
+					height: 1024,
+					style: [],
+					score: 0,
+					nsfw: false,
+					humor: false
+				},
+				{
+					id: 2,
+					url: 'https://images.example.test/cyberpunk-square-alt.png',
+					thumbnailUrl: 'https://images.example.test/cyberpunk-square-alt-thumb.png',
+					width: 1024,
+					height: 1024,
+					style: [],
+					score: 0,
+					nsfw: false,
+					humor: false
+				}
+			]
+		});
 		window.api = {
 			library: {
 				listGames,
@@ -83,6 +128,9 @@ describe('home page', () => {
 				getScanProgress,
 				onScanProgress,
 				launchGame
+			},
+			artwork: {
+				listSquareGridOptions
 			}
 		};
 	});
@@ -242,5 +290,169 @@ describe('home page', () => {
 
 		expect(launchGame).not.toHaveBeenCalled();
 		expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+	});
+
+	it('opens SteamGridDB cover options and applies a selected cover locally', async () => {
+		const { default: HomePage } = await import('./+page.svelte');
+		const { container } = render(HomePage);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Change cover artwork' })).toBeInTheDocument();
+		});
+
+		const coverButton = screen.getByRole('button', { name: 'Change cover artwork' });
+		await fireEvent.pointerDown(coverButton);
+		await fireEvent.click(coverButton);
+
+		await waitFor(() => {
+			expect(listSquareGridOptions).toHaveBeenCalledWith(mockGames[0]?.id);
+			expect(screen.getByRole('dialog', { name: mockGames[0]?.title })).toBeInTheDocument();
+		});
+
+		await fireEvent.click(
+			screen.getByRole('button', {
+				name: `Use cover option 1 for ${mockGames[0]?.title}`
+			})
+		);
+
+		await waitFor(() => {
+			expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+		});
+
+		const selectedCover = container.querySelector(
+			'.home-rail-item.is-selected [data-game-cover] img'
+		);
+		expect(selectedCover).toHaveAttribute(
+			'src',
+			'https://images.example.test/cyberpunk-square.png'
+		);
+	});
+
+	it('routes directional and confirm input to the open cover picker', async () => {
+		const { default: HomePage } = await import('./+page.svelte');
+		const { container } = render(HomePage);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Change cover artwork' })).toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.moveDown);
+		emitInput(INPUT_ACTIONS.moveRight);
+		emitInput(INPUT_ACTIONS.confirm);
+
+		await waitFor(() => {
+			expect(screen.getByRole('dialog', { name: mockGames[0]?.title })).toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.moveRight);
+		emitRepeatedInput(INPUT_ACTIONS.moveRight);
+		emitInput(INPUT_ACTIONS.confirm);
+
+		await waitFor(() => {
+			expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.confirm, { phase: INPUT_PHASES.release });
+
+		expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Change cover artwork' })).toHaveAttribute(
+			'aria-current',
+			'true'
+		);
+		expect(launchGame).not.toHaveBeenCalled();
+		const selectedCover = container.querySelector(
+			'.home-rail-item.is-selected [data-game-cover] img'
+		);
+		expect(selectedCover).toHaveAttribute(
+			'src',
+			'https://images.example.test/cyberpunk-square-alt.png'
+		);
+
+		emitInput(INPUT_ACTIONS.cancel);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Play Game' })).not.toHaveAttribute('aria-current');
+			expect(
+				screen.getByRole('button', { name: mockGames[0]?.title ?? '' }).closest('.game-card')
+			).toHaveClass('is-active', 'is-focused');
+		});
+	});
+
+	it('closes the open cover picker on cancel input and returns control to home', async () => {
+		const { default: HomePage } = await import('./+page.svelte');
+		render(HomePage);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Change cover artwork' })).toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.moveDown);
+		emitInput(INPUT_ACTIONS.moveRight);
+		emitInput(INPUT_ACTIONS.confirm);
+
+		await waitFor(() => {
+			expect(screen.getByRole('dialog', { name: mockGames[0]?.title })).toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.cancel);
+
+		await waitFor(() => {
+			expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.cancel, { phase: INPUT_PHASES.release });
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Change cover artwork' })).toHaveAttribute(
+				'aria-current',
+				'true'
+			);
+		});
+
+		emitInput(INPUT_ACTIONS.moveLeft);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Play Game' })).toHaveAttribute(
+				'aria-current',
+				'true'
+			);
+		});
+	});
+
+	it('returns from the action buttons to the home rail on cancel input', async () => {
+		const { default: HomePage } = await import('./+page.svelte');
+		render(HomePage);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Play Game' })).toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.moveDown);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Play Game' })).toHaveAttribute(
+				'aria-current',
+				'true'
+			);
+		});
+
+		emitInput(INPUT_ACTIONS.cancel);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Play Game' })).not.toHaveAttribute('aria-current');
+			expect(
+				screen.getByRole('button', { name: mockGames[0]?.title ?? '' }).closest('.game-card')
+			).toHaveClass('is-active', 'is-focused');
+		});
+	});
+
+	it('does not define mouse-hover behavior for the cover picker', () => {
+		const source = readFileSync(
+			'C:/Users/Michael/Developer/Projects/nexus/interface/src/lib/components/home/CoverArtPicker.svelte',
+			'utf8'
+		);
+
+		expect(source).not.toContain(':hover');
+		expect(source).not.toContain('onpointerenter');
 	});
 });
