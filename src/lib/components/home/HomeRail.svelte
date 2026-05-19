@@ -11,15 +11,15 @@
 	const CAROUSEL_INSET_REM = 11;
 	const ACTIONS_INSET_REM = 5;
 	const TOP_BLEED_REM = 9;
-	const CARD_SIZE_REM = 11;
+	const CARD_SIZE_REM = 13;
 	const RESTING_CARD_SCALE = 0.625;
-	const COMPACT_ADVANCE_REM = 7.15;
-	const ACTIVE_GAP_BOOST_REM = 2.3;
-	const DETAIL_EXIT_LIFT_REM = -15;
+	const COMPACT_ADVANCE_REM = 8.4;
+	const ACTIVE_GAP_BOOST_REM = 2.75;
+	const DETAIL_EXIT_LIFT_REM = -17;
 	const DETAIL_EXIT_FADE_MS = 160;
 	const TITLE_OFFSET_REM = 1;
-	const TITLE_DEFAULT_TOP_REM = 8.5;
-	const TITLE_DETAIL_TOP_REM = 2.25;
+	const TITLE_DEFAULT_TOP_REM = 10;
+	const TITLE_DETAIL_TOP_REM = 3.5;
 	const SCALE_LEAD_MS = 90;
 	const TITLE_ENTER_MS = 200;
 	const TITLE_ENTER_OFFSET_REM = 0.35;
@@ -134,6 +134,7 @@
 						{index}
 						{game}
 						isActive={isSelected && !isActionFocused}
+						isResting={isSelected && isActionFocused}
 						isFocused={isHighlighted && isCarouselFocused}
 						align={isActionFocused ? 'start' : 'center'}
 						onPress={onCardPress}
@@ -180,7 +181,7 @@
 
 	.home-rail-stage {
 		position: relative;
-		height: 12rem;
+		height: 14rem;
 		will-change: transform;
 		transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
 		transform: translate3d(0, 0, 0);

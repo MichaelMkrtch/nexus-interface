@@ -47,7 +47,7 @@ describe('HomeRail', () => {
 		expect(title).toHaveTextContent(mockGames[0]?.title ?? '');
 	});
 
-	it('returns the selected card to standard size while hiding the rest in the actions section', () => {
+	it('returns the selected card to resting size while hiding the rest in the actions section', () => {
 		render(HomeRail, {
 			props: {
 				games: mockGames,
@@ -65,12 +65,13 @@ describe('HomeRail', () => {
 			.closest('.home-rail-item') as HTMLElement | null;
 
 		expect(selectedCard).not.toHaveClass('is-active');
+		expect(selectedCard).toHaveClass('is-resting');
 		expect(selectedCard).not.toHaveClass('is-focused');
 		expect(hiddenCards).toHaveLength(mockGames.length - 1);
 		expect(
 			Number.parseFloat(previousCardItem?.style.getPropertyValue('--home-rail-x') ?? '0')
-		).toBeCloseTo(-3.45, 2);
-		expect(previousCardItem?.style.getPropertyValue('--home-rail-y')).toBe('-15rem');
+		).toBeCloseTo(-5.15, 2);
+		expect(previousCardItem?.style.getPropertyValue('--home-rail-y')).toBe('-17rem');
 	});
 
 	it('uses centered card alignment in carousel mode and start alignment in actions mode', async () => {
@@ -89,7 +90,7 @@ describe('HomeRail', () => {
 			'.home-rail-title-shell'
 		) as HTMLElement | null;
 		expect(carouselCard).not.toHaveClass('align-start');
-		expect(carouselTitleShell?.style.transform).toContain('translate3d(23rem');
+		expect(carouselTitleShell?.style.transform).toContain('translate3d(25rem, 19.5rem');
 
 		await rerender({
 			games: mockGames,
@@ -104,7 +105,7 @@ describe('HomeRail', () => {
 			'.home-rail-title-shell'
 		) as HTMLElement | null;
 		expect(actionCard).toHaveClass('align-start');
-		expect(actionTitleShell?.style.transform).toContain('translate3d(12.875rem');
+		expect(actionTitleShell?.style.transform).toContain('translate3d(14.125rem');
 	});
 
 	it('lets the card scale first, then fades the new title and focus chrome in together', async () => {

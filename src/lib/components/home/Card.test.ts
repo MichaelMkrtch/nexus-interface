@@ -43,6 +43,21 @@ describe('Card', () => {
 		expect(shell?.querySelector('.active-card-border')).toHaveClass('selection-gradient-border');
 	});
 
+	it('can force the selected card back to resting scale', () => {
+		render(Card, {
+			props: {
+				index: 2,
+				game,
+				isActive: true,
+				isResting: true
+			}
+		});
+
+		const shell = screen.getByRole('button', { name: game.title }).closest('.game-card');
+
+		expect(shell).toHaveClass('is-active', 'is-resting');
+	});
+
 	it('forwards pointer interactions with the card index', async () => {
 		const onPress = vi.fn();
 		render(Card, {

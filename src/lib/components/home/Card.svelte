@@ -8,6 +8,7 @@
 		game: Game;
 		isActive?: boolean;
 		isFocused?: boolean;
+		isResting?: boolean;
 		align?: 'center' | 'start';
 		onPress?: (index: number) => void;
 	}
@@ -17,6 +18,7 @@
 		game,
 		isActive = false,
 		isFocused = false,
+		isResting = false,
 		align = 'center',
 		onPress
 	}: CardProps = $props();
@@ -31,6 +33,7 @@
 		'artwork-card-frame',
 		'game-card',
 		isActive && 'is-active',
+		isResting && 'is-resting',
 		isFocused && 'is-focused',
 		align === 'start' && 'align-start'
 	]}
@@ -57,7 +60,7 @@
 
 <style>
 	.game-card {
-		--artwork-card-size: 11rem;
+		--artwork-card-size: 13rem;
 		--artwork-card-frame-padding: 5px;
 		--artwork-card-border-width: 3px;
 		--artwork-card-border-radius: 28px;
@@ -69,5 +72,9 @@
 
 	.active-card-border {
 		z-index: 0;
+	}
+
+	.game-card.is-resting .game-card-button {
+		transform: scale(var(--artwork-card-inactive-scale));
 	}
 </style>
