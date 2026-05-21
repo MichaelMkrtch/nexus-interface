@@ -5,6 +5,7 @@
 	import CoverArtPicker from '$components/home/CoverArtPicker.svelte';
 	import GameHero from '$components/home/GameHero.svelte';
 	import Header from '$components/home/Header.svelte';
+	import LibraryGrid from '$components/home/LibraryGrid.svelte';
 	import HomeRail from '$components/home/HomeRail.svelte';
 	import IconActionButton from '$components/home/IconActionButton.svelte';
 	import PlayButton from '$components/home/PlayButton.svelte';
@@ -24,6 +25,7 @@
 	import type { Game } from '$lib/features/games/types';
 	import { createHomeInputHandler } from '$lib/features/home/home-input';
 	import { createHomeNavigation, HOME_SECTIONS } from '$lib/features/home/home-navigation.svelte';
+	import { HOME_RAIL_ITEM_LIMIT, HOME_RAIL_LIBRARY_ITEM_COUNT } from '$lib/features/home/home-rail';
 	import { createKeyboardInputAdapter } from '$lib/input/adapters/keyboard';
 	import { createWebGamepadInputAdapter } from '$lib/input/adapters/web-gamepad';
 	import { INPUT_ACTIONS, type InputEvent } from '$lib/input/contracts';
@@ -52,9 +54,48 @@
 		updateBackground: 1
 	} as const;
 	const COVER_ACTION_MENU_OPTION_COUNT = 2;
+	const LIBRARY_GRID_COLUMN_COUNT = 5;
+
+	const alphabetizedLibraryGames = $derived(
+		[...games].sort((firstGame, secondGame) =>
+			firstGame.title.localeCompare(secondGame.title, undefined, {
+				sensitivity: 'base',
+				numeric: true
+			})
+		)
+	);
+
+	function getVisibleGameCount() {
+		return Math.min(games.length, HOME_RAIL_ITEM_LIMIT);
+	}
+
+	function getVisibleRailItemCount() {
+		const visibleGameCount = getVisibleGameCount();
+		if (visibleGameCount <= 0) return 0;
+
+		return visibleGameCount + HOME_RAIL_LIBRARY_ITEM_COUNT;
+	}
+
+	function getActiveGame() {
+		if (navigation.focusedGameIndex >= getVisibleGameCount()) return undefined;
+
+		return games[navigation.focusedGameIndex];
+	}
+
+	function getHeroFocusedIndex() {
+		return Math.min(navigation.focusedGameIndex, Math.max(0, getVisibleGameCount() - 1));
+	}
+
+	function isLibraryRailFocused() {
+		return getVisibleGameCount() > 0 && navigation.focusedGameIndex === getVisibleGameCount();
+	}
+
+	function isLibraryMode() {
+		return isLibraryRailFocused() || navigation.activeSection === HOME_SECTIONS.library;
+	}
 
 	async function handlePlayGame() {
-		const activeGame = games[navigation.focusedGameIndex];
+		const activeGame = getActiveGame();
 		if (!activeGame?.launchable) return;
 
 		launchError = '';
@@ -111,7 +152,7 @@
 	}
 
 	async function handleCoverSelect(option: SteamGridDbArtworkOption) {
-		const activeGame = games[navigation.focusedGameIndex];
+		const activeGame = getActiveGame();
 		if (!activeGame) return;
 
 		const result = await setSteamGridDbArtworkOverride({
@@ -141,7 +182,7 @@
 	}
 
 	async function pickLocalOverrideForActiveGame(kind: ArtworkOverrideKind) {
-		const activeGame = games[navigation.focusedGameIndex];
+		const activeGame = getActiveGame();
 		if (!activeGame) return;
 
 		const result = await pickLocalImageArtworkOverride(activeGame.id, kind);
@@ -176,9 +217,16 @@
 		navigation.focusGame(index);
 	}
 
+	function handleLibraryGridCardPress(index: number) {
+		launchError = '';
+		navigation.focusLibrary(index);
+	}
+
 	const navigation = createHomeNavigation({
-		gameCount: () => games.length,
+		gameCount: getVisibleRailItemCount,
 		actionCount: 2,
+		libraryItemCount: () => alphabetizedLibraryGames.length,
+		libraryColumnCount: LIBRARY_GRID_COLUMN_COUNT,
 		onConfirmAction: (actionIndex) => {
 			if (actionIndex === ACTION_INDEX.play) {
 				void handlePlayGame();
@@ -202,6 +250,12 @@
 			if (navigation.activeSection === HOME_SECTIONS.actions) {
 				launchError = '';
 				navigation.focusGame(navigation.focusedGameIndex);
+			} else if (navigation.activeSection === HOME_SECTIONS.library) {
+				launchError = '';
+				navigation.focusGame(getVisibleGameCount());
+			} else if (isLibraryRailFocused()) {
+				launchError = '';
+				navigation.focusGame(0);
 			}
 			return;
 		}
@@ -255,8 +309,13 @@
 
 	function shouldRepeatHomeInput(event: InputEvent) {
 		return (
-			navigation.activeSection === HOME_SECTIONS.carousel &&
-			(event.action === INPUT_ACTIONS.moveLeft || event.action === INPUT_ACTIONS.moveRight)
+			(navigation.activeSection === HOME_SECTIONS.carousel &&
+				(event.action === INPUT_ACTIONS.moveLeft || event.action === INPUT_ACTIONS.moveRight)) ||
+			(navigation.activeSection === HOME_SECTIONS.library &&
+				(event.action === INPUT_ACTIONS.moveLeft ||
+					event.action === INPUT_ACTIONS.moveRight ||
+					event.action === INPUT_ACTIONS.moveUp ||
+					event.action === INPUT_ACTIONS.moveDown))
 		);
 	}
 
@@ -279,7 +338,7 @@
 			games = updatedGames;
 			libraryState = updatedGames.length > 0 ? 'ready' : 'empty';
 			navigation.focusGame(
-				Math.min(navigation.focusedGameIndex, Math.max(0, updatedGames.length - 1))
+				Math.min(navigation.focusedGameIndex, Math.max(0, getVisibleRailItemCount() - 1))
 			);
 		});
 
@@ -338,7 +397,7 @@
 	}
 
 	function getPlayActionLabel() {
-		const activeGame = games[navigation.focusedGameIndex];
+		const activeGame = getActiveGame();
 		if (activeGame?.installState === 'missing') return 'Install Game';
 		return activeGame?.launchable ? 'Play Game' : 'Unavailable';
 	}
@@ -352,16 +411,16 @@
 	}
 </script>
 
-<main class="relative size-full overflow-hidden">
-	{#if games.length > 0}
-		<GameHero {games} focusedIndex={navigation.focusedGameIndex} />
+<main class={['relative size-full overflow-hidden', isLibraryMode() && 'is-library-mode']}>
+	{#if games.length > 0 && !isLibraryMode()}
+		<GameHero {games} focusedIndex={getHeroFocusedIndex()} />
 	{/if}
 
 	<div class="home-overview">
 		<div
 			class={[
 				'home-overview-header',
-				navigation.activeSection === HOME_SECTIONS.actions && 'is-hidden-in-detail'
+				navigation.activeSection !== HOME_SECTIONS.carousel && 'is-hidden-in-detail'
 			]}
 		>
 			<Header />
@@ -377,41 +436,55 @@
 				/>
 			</div>
 
-			<section class="home-actions">
-				<PlayButton
-					label={getPlayActionLabel()}
-					isFocused={navigation.activeSection === HOME_SECTIONS.actions &&
-						navigation.focusedActionIndex === ACTION_INDEX.play}
-					onPress={handlePlayButtonPress}
-					onConfirm={handlePlayGame}
-				/>
-				<div class="home-cover-action">
-					<IconActionButton
-						label="Game cover options"
+			{#if getActiveGame()}
+				<section class="home-actions">
+					<PlayButton
+						label={getPlayActionLabel()}
 						isFocused={navigation.activeSection === HOME_SECTIONS.actions &&
-							navigation.focusedActionIndex === ACTION_INDEX.coverOptions}
-						onPress={handleCoverOptionsPress}
-						onConfirm={openCoverActionMenu}
+							navigation.focusedActionIndex === ACTION_INDEX.play}
+						onPress={handlePlayButtonPress}
+						onConfirm={handlePlayGame}
 					/>
-
-					{#if isCoverActionMenuOpen}
-						<CoverActionMenu
-							focusedOptionIndex={focusedCoverActionMenuOptionIndex}
-							onUpdateCover={openCoverPicker}
-							onUpdateBackground={handleBackgroundUpload}
+					<div class="home-cover-action">
+						<IconActionButton
+							label="Game cover options"
+							isFocused={navigation.activeSection === HOME_SECTIONS.actions &&
+								navigation.focusedActionIndex === ACTION_INDEX.coverOptions}
+							onPress={handleCoverOptionsPress}
+							onConfirm={openCoverActionMenu}
 						/>
-					{/if}
-				</div>
-			</section>
 
-			{#if isCoverPickerOpen && games[navigation.focusedGameIndex]}
-				<CoverArtPicker
-					bind:this={coverPicker}
-					game={games[navigation.focusedGameIndex]}
-					onClose={closeCoverPicker}
-					onSelect={handleCoverSelect}
-					onUploadLocal={handleCoverUpload}
+						{#if isCoverActionMenuOpen}
+							<CoverActionMenu
+								focusedOptionIndex={focusedCoverActionMenuOptionIndex}
+								onUpdateCover={openCoverPicker}
+								onUpdateBackground={handleBackgroundUpload}
+							/>
+						{/if}
+					</div>
+				</section>
+			{/if}
+
+			{#if isLibraryMode()}
+				<LibraryGrid
+					games={alphabetizedLibraryGames}
+					focusedIndex={navigation.focusedLibraryIndex}
+					isGridFocused={navigation.activeSection === HOME_SECTIONS.library}
+					onCardPress={handleLibraryGridCardPress}
 				/>
+			{/if}
+
+			{#if isCoverPickerOpen}
+				{@const activePickerGame = getActiveGame()}
+				{#if activePickerGame}
+					<CoverArtPicker
+						bind:this={coverPicker}
+						game={activePickerGame}
+						onClose={closeCoverPicker}
+						onSelect={handleCoverSelect}
+						onUploadLocal={handleCoverUpload}
+					/>
+				{/if}
 			{/if}
 
 			{#if launchError}
@@ -458,6 +531,10 @@
 		height: 100%;
 		padding-top: var(--home-header-space);
 		overflow: hidden;
+	}
+
+	:global(main.is-library-mode) {
+		background: #000;
 	}
 
 	.home-overview-header {

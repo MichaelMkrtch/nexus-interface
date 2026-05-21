@@ -15,7 +15,9 @@ export const INPUT_ACTIONS = {
 	cancel: 'cancel',
 	options: 'options',
 	shoulderLeft: 'shoulder-left',
-	shoulderRight: 'shoulder-right'
+	shoulderRight: 'shoulder-right',
+	triggerLeft: 'trigger-left',
+	triggerRight: 'trigger-right'
 } as const;
 
 export type InputAction = (typeof INPUT_ACTIONS)[keyof typeof INPUT_ACTIONS];

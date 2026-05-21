@@ -26,6 +26,12 @@ export function createHomeInputHandler({ navigation }: HomeInputHandlerOptions) 
 			case INPUT_ACTIONS.confirm:
 				navigation.confirm();
 				break;
+			case INPUT_ACTIONS.triggerLeft:
+				navigation.jumpToFirstRailItem();
+				break;
+			case INPUT_ACTIONS.triggerRight:
+				navigation.jumpToLastRailItem();
+				break;
 		}
 	};
 }

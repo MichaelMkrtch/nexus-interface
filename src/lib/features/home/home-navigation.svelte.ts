@@ -1,6 +1,9 @@
+import { HOME_LIBRARY_GRID_COLUMN_COUNT } from './home-rail';
+
 export const HOME_SECTIONS = {
 	carousel: 'carousel',
-	actions: 'actions'
+	actions: 'actions',
+	library: 'library'
 } as const;
 
 export const HOME_MOVE_DIRECTIONS = {
@@ -16,6 +19,8 @@ export type Move = (typeof HOME_MOVE_DIRECTIONS)[keyof typeof HOME_MOVE_DIRECTIO
 type Options = {
 	gameCount: number | (() => number);
 	actionCount?: number;
+	libraryItemCount?: number | (() => number);
+	libraryColumnCount?: number;
 	onConfirmAction?: (actionIndex: number) => void;
 };
 
@@ -23,8 +28,12 @@ export type HomeNav = {
 	readonly activeSection: HomeSection;
 	readonly focusedGameIndex: number;
 	readonly focusedActionIndex: number;
+	readonly focusedLibraryIndex: number;
 	focusGame: (index: number) => void;
 	focusAction: (index: number) => void;
+	focusLibrary: (index: number) => void;
+	jumpToFirstRailItem: () => void;
+	jumpToLastRailItem: () => void;
 	move: (direction: Move, distance?: number) => void;
 	confirm: () => void;
 };
@@ -32,19 +41,24 @@ export type HomeNav = {
 export function createHomeNavigation({
 	gameCount,
 	actionCount = 1,
+	libraryItemCount = 0,
+	libraryColumnCount = HOME_LIBRARY_GRID_COLUMN_COUNT,
 	onConfirmAction
 }: Options): HomeNav {
 	const getGameCount = typeof gameCount === 'function' ? gameCount : () => gameCount;
-	const sectionOrder = [HOME_SECTIONS.carousel, HOME_SECTIONS.actions] as const;
+	const getLibraryItemCount =
+		typeof libraryItemCount === 'function' ? libraryItemCount : () => libraryItemCount;
 	const itemCounts: Record<HomeSection, () => number> = {
 		[HOME_SECTIONS.carousel]: getGameCount,
-		[HOME_SECTIONS.actions]: () => actionCount
+		[HOME_SECTIONS.actions]: () => actionCount,
+		[HOME_SECTIONS.library]: getLibraryItemCount
 	};
 
 	let activeSection = $state<HomeSection>(HOME_SECTIONS.carousel);
 	let indices = $state<Record<HomeSection, number>>({
 		[HOME_SECTIONS.carousel]: 0,
-		[HOME_SECTIONS.actions]: 0
+		[HOME_SECTIONS.actions]: 0,
+		[HOME_SECTIONS.library]: 0
 	});
 
 	function clampIndex(section: HomeSection, index: number) {
@@ -79,18 +93,67 @@ export function createHomeNavigation({
 		setActiveSection(HOME_SECTIONS.actions);
 	}
 
+	function focusLibrary(index: number) {
+		setIndex(HOME_SECTIONS.library, index);
+		setActiveSection(HOME_SECTIONS.library);
+	}
+
+	function enterActions() {
+		setIndex(HOME_SECTIONS.actions, 0);
+		setActiveSection(HOME_SECTIONS.actions);
+	}
+
+	function enterLibrary() {
+		setIndex(HOME_SECTIONS.library, 0);
+		setActiveSection(HOME_SECTIONS.library);
+	}
+
+	function jumpToFirstRailItem() {
+		if (activeSection !== HOME_SECTIONS.carousel) return;
+		setIndex(HOME_SECTIONS.carousel, 0);
+	}
+
+	function jumpToLastRailItem() {
+		if (activeSection !== HOME_SECTIONS.carousel) return;
+		setIndex(HOME_SECTIONS.carousel, getGameCount() - 1);
+	}
+
 	function moveWithinSection(delta: number, distance = 1) {
 		setIndex(activeSection, indices[activeSection] + delta * distance);
 	}
 
-	function moveBetweenSections(delta: number) {
-		const currentIndex = sectionOrder.indexOf(activeSection);
-		const nextIndex = Math.max(0, Math.min(currentIndex + delta, sectionOrder.length - 1));
-		const nextSection = sectionOrder[nextIndex];
+	function isLibraryRailItemFocused() {
+		return indices[HOME_SECTIONS.carousel] === getGameCount() - 1;
+	}
 
-		if (!nextSection || nextSection === activeSection) return;
+	function moveVertically(direction: Move) {
+		if (activeSection === HOME_SECTIONS.carousel && direction === HOME_MOVE_DIRECTIONS.down) {
+			if (isLibraryRailItemFocused()) {
+				enterLibrary();
+			} else {
+				enterActions();
+			}
+			return;
+		}
 
-		setActiveSection(nextSection);
+		if (activeSection === HOME_SECTIONS.actions && direction === HOME_MOVE_DIRECTIONS.up) {
+			setActiveSection(HOME_SECTIONS.carousel);
+			return;
+		}
+
+		if (activeSection === HOME_SECTIONS.library) {
+			if (
+				direction === HOME_MOVE_DIRECTIONS.up &&
+				indices[HOME_SECTIONS.library] < libraryColumnCount
+			) {
+				setActiveSection(HOME_SECTIONS.carousel);
+				return;
+			}
+
+			const delta =
+				direction === HOME_MOVE_DIRECTIONS.down ? libraryColumnCount : -libraryColumnCount;
+			moveWithinSection(delta);
+		}
 	}
 
 	function move(direction: Move, distance = 1) {
@@ -98,16 +161,16 @@ export function createHomeNavigation({
 			moveWithinSection(-1, distance);
 		} else if (direction === 'right') {
 			moveWithinSection(1, distance);
-		} else if (direction === 'down') {
-			moveBetweenSections(1);
-		} else if (direction === 'up') {
-			moveBetweenSections(-1);
+		} else {
+			moveVertically(direction);
 		}
 	}
 
 	function confirm() {
 		if (activeSection === HOME_SECTIONS.actions) {
 			onConfirmAction?.(indices[HOME_SECTIONS.actions]);
+		} else if (activeSection === HOME_SECTIONS.carousel && isLibraryRailItemFocused()) {
+			enterLibrary();
 		}
 	}
 
@@ -121,8 +184,14 @@ export function createHomeNavigation({
 		get focusedActionIndex() {
 			return indices[HOME_SECTIONS.actions];
 		},
+		get focusedLibraryIndex() {
+			return indices[HOME_SECTIONS.library];
+		},
 		focusGame,
 		focusAction,
+		focusLibrary,
+		jumpToFirstRailItem,
+		jumpToLastRailItem,
 		move,
 		confirm
 	};

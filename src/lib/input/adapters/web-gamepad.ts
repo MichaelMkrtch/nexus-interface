@@ -17,6 +17,8 @@ const STANDARD_BUTTONS = {
 	cancel: 1,
 	shoulderLeft: 4,
 	shoulderRight: 5,
+	triggerLeft: 6,
+	triggerRight: 7,
 	options: 9,
 	dpadUp: 12,
 	dpadDown: 13,
@@ -113,7 +115,9 @@ export function createWebGamepadInputAdapter({
 					[INPUT_ACTIONS.cancel, STANDARD_BUTTONS.cancel],
 					[INPUT_ACTIONS.options, STANDARD_BUTTONS.options],
 					[INPUT_ACTIONS.shoulderLeft, STANDARD_BUTTONS.shoulderLeft],
-					[INPUT_ACTIONS.shoulderRight, STANDARD_BUTTONS.shoulderRight]
+					[INPUT_ACTIONS.shoulderRight, STANDARD_BUTTONS.shoulderRight],
+					[INPUT_ACTIONS.triggerLeft, STANDARD_BUTTONS.triggerLeft],
+					[INPUT_ACTIONS.triggerRight, STANDARD_BUTTONS.triggerRight]
 				];
 
 				for (const [action, index] of actionButtons) {

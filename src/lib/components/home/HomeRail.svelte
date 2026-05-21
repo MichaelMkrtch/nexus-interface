@@ -5,13 +5,19 @@
 	import { untrack } from 'svelte';
 
 	import { HOME_SECTIONS } from '$lib/features/home/home-navigation.svelte';
+	import {
+		HOME_RAIL_CARD_SIZE_REM,
+		HOME_RAIL_ITEM_LIMIT,
+		HOME_RAIL_LIBRARY_TITLE
+	} from '$lib/features/home/home-rail';
 
 	import Card from './Card.svelte';
+	import LibraryCard from './LibraryCard.svelte';
 
 	const CAROUSEL_INSET_REM = 11;
 	const ACTIONS_INSET_REM = 5;
 	const TOP_BLEED_REM = 9;
-	const CARD_SIZE_REM = 13;
+	const CARD_SIZE_REM = HOME_RAIL_CARD_SIZE_REM;
 	const RESTING_CARD_SCALE = 0.625;
 	const COMPACT_ADVANCE_REM = 8.4;
 	const ACTIVE_GAP_BOOST_REM = 2.75;
@@ -33,39 +39,60 @@
 
 	let { games, focusedIndex, activeSection, onCardPress }: HomeRailProps = $props();
 
-	let displayedTitleIndex = $state(untrack(() => focusedIndex));
-	let highlightedIndex = $state(untrack(() => focusedIndex));
+	const visibleGames = $derived(games.slice(0, HOME_RAIL_ITEM_LIMIT));
+	const visibleFocusedIndex = $derived(getVisibleFocusedIndex());
+	const libraryCardIndex = $derived(visibleGames.length);
+
+	let displayedTitleIndex = $state(untrack(() => getVisibleFocusedIndex()));
+	let highlightedIndex = $state(untrack(() => getVisibleFocusedIndex()));
 	let highlightedSection = $state(untrack(() => activeSection));
 	let isTitleVisible = $state(true);
-	let lastHandledIndex = untrack(() => focusedIndex);
+	let lastHandledIndex = untrack(() => getVisibleFocusedIndex());
 	let lastHandledSection = untrack(() => activeSection);
 
+	function getVisibleFocusedIndex() {
+		const visibleItemCount = Math.min(games.length, HOME_RAIL_ITEM_LIMIT) + 1;
+		if (visibleItemCount <= 0) return 0;
+
+		return Math.max(0, Math.min(focusedIndex, visibleItemCount - 1));
+	}
+
+	function getDisplayedTitle() {
+		if (displayedTitleIndex === libraryCardIndex) return HOME_RAIL_LIBRARY_TITLE;
+
+		return visibleGames[displayedTitleIndex]?.title;
+	}
+
 	function getSectionInsetRem(section: HomeSection) {
-		return section === HOME_SECTIONS.actions ? ACTIONS_INSET_REM : CAROUSEL_INSET_REM;
+		return section === HOME_SECTIONS.carousel ? CAROUSEL_INSET_REM : ACTIONS_INSET_REM;
+	}
+
+	function isDetailSection(section: HomeSection) {
+		return section !== HOME_SECTIONS.carousel;
 	}
 
 	function getTitleLeftRem(section: HomeSection) {
-		const anchoredCardWidthRem =
-			section === HOME_SECTIONS.actions ? CARD_SIZE_REM * RESTING_CARD_SCALE : CARD_SIZE_REM;
+		const anchoredCardWidthRem = isDetailSection(section)
+			? CARD_SIZE_REM * RESTING_CARD_SCALE
+			: CARD_SIZE_REM;
 
 		return getSectionInsetRem(section) + anchoredCardWidthRem + TITLE_OFFSET_REM;
 	}
 
 	function getTitleTopRem(section: HomeSection) {
-		const sectionTop =
-			section === HOME_SECTIONS.actions ? TITLE_DETAIL_TOP_REM : TITLE_DEFAULT_TOP_REM;
+		const sectionTop = isDetailSection(section) ? TITLE_DETAIL_TOP_REM : TITLE_DEFAULT_TOP_REM;
 
 		return TOP_BLEED_REM + sectionTop;
 	}
 
 	function getHiddenCardOffsetCompensationRem(section: HomeSection, index: number) {
-		if (section !== HOME_SECTIONS.actions || index === focusedIndex) return 0;
+		if (!isDetailSection(section) || index === visibleFocusedIndex) return 0;
 
 		return CAROUSEL_INSET_REM - ACTIONS_INSET_REM;
 	}
 
 	function getCardOffsetRem(index: number, section: HomeSection) {
-		const distanceFromSelected = index - focusedIndex;
+		const distanceFromSelected = index - visibleFocusedIndex;
 		if (distanceFromSelected === 0) return 0;
 
 		const direction = Math.sign(distanceFromSelected);
@@ -79,19 +106,19 @@
 	}
 
 	$effect(() => {
-		const indexChanged = focusedIndex !== lastHandledIndex;
+		const indexChanged = visibleFocusedIndex !== lastHandledIndex;
 		const sectionChanged = activeSection !== lastHandledSection;
 		if (!indexChanged && !sectionChanged) return;
 
-		lastHandledIndex = focusedIndex;
+		lastHandledIndex = visibleFocusedIndex;
 		lastHandledSection = activeSection;
 		isTitleVisible = false;
-		displayedTitleIndex = focusedIndex;
+		displayedTitleIndex = visibleFocusedIndex;
 		highlightedIndex = -1;
 		highlightedSection = activeSection;
 
 		const timeout = window.setTimeout(() => {
-			highlightedIndex = focusedIndex;
+			highlightedIndex = visibleFocusedIndex;
 			isTitleVisible = true;
 		}, SCALE_LEAD_MS);
 
@@ -113,12 +140,12 @@
 			class="home-rail-stage"
 			style:transform={`translate3d(${getSectionInsetRem(activeSection)}rem, 0, 0)`}
 		>
-			{#each games as game, index (game.id)}
-				{@const isSelected = focusedIndex === index}
+			{#each visibleGames as game, index (game.id)}
+				{@const isSelected = visibleFocusedIndex === index}
 				{@const isHighlighted = highlightedIndex === index}
 				{@const isCarouselFocused = highlightedSection === HOME_SECTIONS.carousel}
-				{@const isActionFocused = activeSection === HOME_SECTIONS.actions}
-				{@const isHiddenInDetail = !isSelected && isActionFocused}
+				{@const isDetailFocused = isDetailSection(activeSection)}
+				{@const isHiddenInDetail = !isSelected && isDetailFocused}
 				<div
 					class={[
 						'home-rail-item',
@@ -133,14 +160,41 @@
 					<Card
 						{index}
 						{game}
-						isActive={isSelected && !isActionFocused}
-						isResting={isSelected && isActionFocused}
+						isActive={isSelected && !isDetailFocused}
+						isResting={isSelected && isDetailFocused}
 						isFocused={isHighlighted && isCarouselFocused}
-						align={isActionFocused ? 'start' : 'center'}
+						align={isDetailFocused ? 'start' : 'center'}
 						onPress={onCardPress}
 					/>
 				</div>
 			{/each}
+
+			<div
+				class={[
+					'home-rail-item',
+					visibleFocusedIndex === libraryCardIndex && 'is-selected',
+					highlightedIndex === libraryCardIndex && 'is-highlighted',
+					visibleFocusedIndex !== libraryCardIndex &&
+						isDetailSection(activeSection) &&
+						'is-hidden-in-detail'
+				]}
+				style:--home-rail-x={`${getCardOffsetRem(libraryCardIndex, activeSection)}rem`}
+				style:--home-rail-y={visibleFocusedIndex !== libraryCardIndex &&
+				isDetailSection(activeSection)
+					? `${DETAIL_EXIT_LIFT_REM}rem`
+					: '0rem'}
+				data-selected-card={visibleFocusedIndex === libraryCardIndex}
+			>
+				<LibraryCard
+					index={libraryCardIndex}
+					isActive={visibleFocusedIndex === libraryCardIndex && !isDetailSection(activeSection)}
+					isResting={visibleFocusedIndex === libraryCardIndex && isDetailSection(activeSection)}
+					isFocused={highlightedIndex === libraryCardIndex &&
+						highlightedSection === HOME_SECTIONS.carousel}
+					align={isDetailSection(activeSection) ? 'start' : 'center'}
+					onPress={onCardPress}
+				/>
+			</div>
 		</div>
 	</div>
 
@@ -154,7 +208,7 @@
 			{#key displayedTitleIndex}
 				<div class="home-rail-title">
 					<h2 class="text-2xl font-medium text-white">
-						{games[displayedTitleIndex]?.title}
+						{getDisplayedTitle()}
 					</h2>
 				</div>
 			{/key}

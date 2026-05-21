@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { mockGames } from '$lib/features/games/mock-games';
 import { HOME_SECTIONS } from '$lib/features/home/home-navigation.svelte';
+import { HOME_RAIL_ITEM_LIMIT, HOME_RAIL_LIBRARY_TITLE } from '$lib/features/home/home-rail';
 
 import HomeRail from './HomeRail.svelte';
 
@@ -47,6 +48,28 @@ describe('HomeRail', () => {
 		expect(title).toHaveTextContent(mockGames[0]?.title ?? '');
 	});
 
+	it('renders only the capped home rail card count', () => {
+		const manyGames = Array.from({ length: HOME_RAIL_ITEM_LIMIT + 2 }, (_, index) => ({
+			...mockGames[0],
+			id: `game-${index}`,
+			title: `Game ${index}`
+		}));
+
+		render(HomeRail, {
+			props: {
+				games: manyGames,
+				focusedIndex: 0,
+				activeSection: HOME_SECTIONS.carousel
+			}
+		});
+
+		expect(
+			screen.getByRole('button', { name: `Game ${HOME_RAIL_ITEM_LIMIT - 1}` })
+		).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: `Game ${HOME_RAIL_ITEM_LIMIT}` })).toBeNull();
+		expect(screen.getByRole('button', { name: HOME_RAIL_LIBRARY_TITLE })).toBeInTheDocument();
+	});
+
 	it('returns the selected card to resting size while hiding the rest in the actions section', () => {
 		render(HomeRail, {
 			props: {
@@ -67,7 +90,7 @@ describe('HomeRail', () => {
 		expect(selectedCard).not.toHaveClass('is-active');
 		expect(selectedCard).toHaveClass('is-resting');
 		expect(selectedCard).not.toHaveClass('is-focused');
-		expect(hiddenCards).toHaveLength(mockGames.length - 1);
+		expect(hiddenCards).toHaveLength(mockGames.length);
 		expect(
 			Number.parseFloat(previousCardItem?.style.getPropertyValue('--home-rail-x') ?? '0')
 		).toBeCloseTo(-5.15, 2);
@@ -90,7 +113,7 @@ describe('HomeRail', () => {
 			'.home-rail-title-shell'
 		) as HTMLElement | null;
 		expect(carouselCard).not.toHaveClass('align-start');
-		expect(carouselTitleShell?.style.transform).toContain('translate3d(25rem, 19.5rem');
+		expect(carouselTitleShell?.style.transform).toContain('translate3d(24.75rem, 19rem');
 
 		await rerender({
 			games: mockGames,
@@ -105,7 +128,7 @@ describe('HomeRail', () => {
 			'.home-rail-title-shell'
 		) as HTMLElement | null;
 		expect(actionCard).toHaveClass('align-start');
-		expect(actionTitleShell?.style.transform).toContain('translate3d(14.125rem');
+		expect(actionTitleShell?.style.transform).toContain('translate3d(13.96875rem');
 	});
 
 	it('lets the card scale first, then fades the new title and focus chrome in together', async () => {
@@ -163,5 +186,22 @@ describe('HomeRail', () => {
 
 		expect(onCardPress).toHaveBeenCalledTimes(1);
 		expect(onCardPress).toHaveBeenCalledWith(2);
+	});
+
+	it('forwards library card pointer interactions with the library index', async () => {
+		const onCardPress = vi.fn();
+		render(HomeRail, {
+			props: {
+				games: mockGames,
+				focusedIndex: 0,
+				activeSection: HOME_SECTIONS.carousel,
+				onCardPress
+			}
+		});
+
+		await fireEvent.pointerDown(screen.getByRole('button', { name: HOME_RAIL_LIBRARY_TITLE }));
+
+		expect(onCardPress).toHaveBeenCalledTimes(1);
+		expect(onCardPress).toHaveBeenCalledWith(mockGames.length);
 	});
 });

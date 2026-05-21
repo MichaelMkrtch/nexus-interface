@@ -27,8 +27,12 @@ function createNavigationMock(): HomeNav {
 		activeSection: 'carousel',
 		focusedGameIndex: 0,
 		focusedActionIndex: 0,
+		focusedLibraryIndex: 0,
 		focusGame: vi.fn(),
 		focusAction: vi.fn(),
+		focusLibrary: vi.fn(),
+		jumpToFirstRailItem: vi.fn(),
+		jumpToLastRailItem: vi.fn(),
 		move: vi.fn(),
 		confirm: vi.fn()
 	};
@@ -61,5 +65,16 @@ describe('createHomeInputHandler', () => {
 
 		expect(navigation.confirm).toHaveBeenCalledTimes(ONCE);
 		expect(navigation.move).not.toHaveBeenCalled();
+	});
+
+	it('maps trigger actions to home rail edge jumps', () => {
+		const navigation = createNavigationMock();
+		const handleInput = createHomeInputHandler({ navigation });
+
+		handleInput(createInputEvent(INPUT_ACTIONS.triggerLeft));
+		handleInput(createInputEvent(INPUT_ACTIONS.triggerRight));
+
+		expect(navigation.jumpToFirstRailItem).toHaveBeenCalledTimes(ONCE);
+		expect(navigation.jumpToLastRailItem).toHaveBeenCalledTimes(ONCE);
 	});
 });

@@ -12,6 +12,7 @@ import {
 	type LibraryLaunchResult
 } from '$lib/features/games/library';
 import { mockGames } from '$lib/features/games/mock-games';
+import { HOME_RAIL_ITEM_LIMIT, HOME_RAIL_LIBRARY_TITLE } from '$lib/features/home/home-rail';
 import {
 	INPUT_ACTIONS,
 	INPUT_PHASES,
@@ -247,6 +248,292 @@ describe('home page', () => {
 
 		await waitFor(() => {
 			expect(playButton).toHaveAttribute('aria-current', 'true');
+		});
+	});
+
+	it('caps the rendered and navigable home rail to the first home rail items', async () => {
+		const manyGames = Array.from({ length: HOME_RAIL_ITEM_LIMIT + 3 }, (_, index) => ({
+			...(libraryGames[index % libraryGames.length] as LibraryGameRecord),
+			id: `game-${index}`,
+			title: `Game ${index}`
+		}));
+		listGames.mockResolvedValueOnce(manyGames);
+
+		const { default: HomePage } = await import('./+page.svelte');
+		render(HomePage);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole('button', { name: `Game ${HOME_RAIL_ITEM_LIMIT - 1}` })
+			).toBeInTheDocument();
+		});
+		expect(screen.queryByRole('button', { name: `Game ${HOME_RAIL_ITEM_LIMIT}` })).toBeNull();
+		expect(screen.getByRole('button', { name: HOME_RAIL_LIBRARY_TITLE })).toBeInTheDocument();
+
+		for (let index = 0; index < HOME_RAIL_ITEM_LIMIT + 3; index += 1) {
+			emitInput(INPUT_ACTIONS.moveRight);
+		}
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole('button', { name: HOME_RAIL_LIBRARY_TITLE }).closest('.library-card')
+			).toHaveClass('is-active');
+		});
+	});
+
+	it('uses triggers to jump to the home rail edges', async () => {
+		const manyGames = Array.from({ length: HOME_RAIL_ITEM_LIMIT + 3 }, (_, index) => ({
+			...(libraryGames[index % libraryGames.length] as LibraryGameRecord),
+			id: `game-${index}`,
+			title: `Game ${index}`
+		}));
+		listGames.mockResolvedValueOnce(manyGames);
+
+		const { default: HomePage } = await import('./+page.svelte');
+		render(HomePage);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Game 0' }).closest('.game-card')).toHaveClass(
+				'is-active'
+			);
+		});
+
+		emitInput(INPUT_ACTIONS.triggerRight);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole('button', { name: HOME_RAIL_LIBRARY_TITLE }).closest('.library-card')
+			).toHaveClass('is-active');
+		});
+
+		emitInput(INPUT_ACTIONS.triggerLeft);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Game 0' }).closest('.game-card')).toHaveClass(
+				'is-active'
+			);
+		});
+	});
+
+	it('returns from the focused library rail card to the first home rail game on cancel', async () => {
+		const manyGames = Array.from({ length: HOME_RAIL_ITEM_LIMIT + 3 }, (_, index) => ({
+			...(libraryGames[index % libraryGames.length] as LibraryGameRecord),
+			id: `game-${index}`,
+			title: `Game ${index}`
+		}));
+		listGames.mockResolvedValueOnce(manyGames);
+
+		const { default: HomePage } = await import('./+page.svelte');
+		render(HomePage);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Game 0' }).closest('.game-card')).toHaveClass(
+				'is-active'
+			);
+		});
+
+		emitInput(INPUT_ACTIONS.triggerRight);
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole('button', { name: HOME_RAIL_LIBRARY_TITLE }).closest('.library-card')
+			).toHaveClass('is-active', 'is-focused');
+		});
+
+		emitInput(INPUT_ACTIONS.cancel);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Game 0' }).closest('.game-card')).toHaveClass(
+				'is-active',
+				'is-focused'
+			);
+		});
+	});
+
+	it('uses the library rail item as a transition into an alphabetized library grid', async () => {
+		const unsortedGames: LibraryGameRecord[] = [
+			{ ...(libraryGames[0] as LibraryGameRecord), id: 'game-z', title: 'Zeta Zero' },
+			{ ...(libraryGames[1] as LibraryGameRecord), id: 'game-a', title: 'Alpha One' },
+			{ ...(libraryGames[2] as LibraryGameRecord), id: 'game-m', title: 'Metro Two' }
+		];
+		listGames.mockResolvedValueOnce(unsortedGames);
+		const { default: HomePage } = await import('./+page.svelte');
+		const { container } = render(HomePage);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: HOME_RAIL_LIBRARY_TITLE })).toBeInTheDocument();
+		});
+
+		for (let index = 0; index < unsortedGames.length; index += 1) {
+			emitInput(INPUT_ACTIONS.moveRight);
+		}
+
+		await waitFor(() => {
+			expect(
+				screen.getByRole('button', { name: HOME_RAIL_LIBRARY_TITLE }).closest('.library-card')
+			).toHaveClass('is-active', 'is-focused');
+		});
+		expect(container.querySelector('main')).toHaveClass('is-library-mode');
+		expect(screen.queryByRole('button', { name: 'Play Game' })).not.toBeInTheDocument();
+		expect(container.querySelector('.game-hero-image')).not.toBeInTheDocument();
+		expect(screen.getByRole('grid', { name: HOME_RAIL_LIBRARY_TITLE })).toHaveClass(
+			'is-grid-preview'
+		);
+		expect(container.querySelector('.library-grid-card.is-focused')).not.toBeInTheDocument();
+
+		emitInput(INPUT_ACTIONS.confirm);
+
+		await waitFor(() => {
+			expect(screen.getByRole('grid', { name: HOME_RAIL_LIBRARY_TITLE })).toHaveClass(
+				'is-grid-focused'
+			);
+		});
+
+		const gridCards = Array.from(container.querySelectorAll('[data-library-grid-card]'));
+		expect(gridCards.map((card) => card.getAttribute('aria-label'))).toEqual([
+			'Alpha One',
+			'Metro Two',
+			'Zeta Zero'
+		]);
+		expect(gridCards[0]?.closest('.library-grid-card')).toHaveClass('is-focused');
+
+		emitInput(INPUT_ACTIONS.moveRight);
+
+		await waitFor(() => {
+			expect(gridCards[1]?.closest('.library-grid-card')).toHaveClass('is-focused');
+		});
+
+		emitInput(INPUT_ACTIONS.cancel);
+
+		await waitFor(() => {
+			expect(screen.getByRole('grid', { name: HOME_RAIL_LIBRARY_TITLE })).toHaveClass(
+				'is-grid-preview'
+			);
+			expect(
+				screen.getByRole('button', { name: HOME_RAIL_LIBRARY_TITLE }).closest('.library-card')
+			).toHaveClass('is-active', 'is-focused');
+		});
+
+		emitInput(INPUT_ACTIONS.confirm);
+
+		await waitFor(() => {
+			expect(gridCards[0]?.closest('.library-grid-card')).toHaveClass('is-focused');
+		});
+	});
+
+	it('scrolls the library grid by focused row without browser scrollbars', async () => {
+		const manyGames = Array.from({ length: 50 }, (_, index) => ({
+			...(libraryGames[index % libraryGames.length] as LibraryGameRecord),
+			id: `library-game-${index}`,
+			title: `Game ${index.toString().padStart(2, '0')}`
+		}));
+		listGames.mockResolvedValueOnce(manyGames);
+
+		const { default: HomePage } = await import('./+page.svelte');
+		const { container } = render(HomePage);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: HOME_RAIL_LIBRARY_TITLE })).toBeInTheDocument();
+		});
+
+		for (let index = 0; index < HOME_RAIL_ITEM_LIMIT; index += 1) {
+			emitInput(INPUT_ACTIONS.moveRight, { at: 100 + index * 100 });
+			emitInput(INPUT_ACTIONS.moveRight, {
+				at: 101 + index * 100,
+				phase: INPUT_PHASES.release
+			});
+		}
+
+		emitInput(INPUT_ACTIONS.confirm, { at: 1_600 });
+		emitInput(INPUT_ACTIONS.moveDown, { at: 2_000 });
+		emitInput(INPUT_ACTIONS.moveDown, { at: 2_001, phase: INPUT_PHASES.release });
+		emitInput(INPUT_ACTIONS.moveDown, { at: 2_400 });
+		emitInput(INPUT_ACTIONS.moveDown, { at: 2_401, phase: INPUT_PHASES.release });
+		emitInput(INPUT_ACTIONS.moveDown, { at: 2_800 });
+		emitInput(INPUT_ACTIONS.moveDown, { at: 2_801, phase: INPUT_PHASES.release });
+
+		await waitFor(() => {
+			const focusedCard = container.querySelector('.library-grid-card.is-focused');
+			const focusedButton = focusedCard?.querySelector('[data-library-grid-card]');
+			const grid = screen.getByRole('grid', { name: HOME_RAIL_LIBRARY_TITLE });
+
+			expect(focusedButton).toHaveAttribute('aria-label', 'Game 15');
+			expect(grid).toHaveClass('is-grid-focused');
+			expect(grid.getAttribute('style')).toContain('--library-grid-scroll-row-offset: 1');
+			expect(container.querySelector('.library-grid-viewport')).toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.moveUp, { at: 3_200 });
+		emitInput(INPUT_ACTIONS.moveUp, { at: 3_201, phase: INPUT_PHASES.release });
+
+		await waitFor(() => {
+			const focusedCard = container.querySelector('.library-grid-card.is-focused');
+			const focusedButton = focusedCard?.querySelector('[data-library-grid-card]');
+			const grid = screen.getByRole('grid', { name: HOME_RAIL_LIBRARY_TITLE });
+
+			expect(focusedButton).toHaveAttribute('aria-label', 'Game 10');
+			expect(grid.getAttribute('style')).toContain('--library-grid-scroll-row-offset: 1');
+		});
+
+		emitInput(INPUT_ACTIONS.moveUp, { at: 3_600 });
+		emitInput(INPUT_ACTIONS.moveUp, { at: 3_601, phase: INPUT_PHASES.release });
+
+		await waitFor(() => {
+			const focusedCard = container.querySelector('.library-grid-card.is-focused');
+			const focusedButton = focusedCard?.querySelector('[data-library-grid-card]');
+			const grid = screen.getByRole('grid', { name: HOME_RAIL_LIBRARY_TITLE });
+
+			expect(focusedButton).toHaveAttribute('aria-label', 'Game 05');
+			expect(grid.getAttribute('style')).toContain('--library-grid-scroll-row-offset: 1');
+		});
+
+		emitInput(INPUT_ACTIONS.moveUp, { at: 4_000 });
+		emitInput(INPUT_ACTIONS.moveUp, { at: 4_001, phase: INPUT_PHASES.release });
+
+		await waitFor(() => {
+			const focusedCard = container.querySelector('.library-grid-card.is-focused');
+			const focusedButton = focusedCard?.querySelector('[data-library-grid-card]');
+			const grid = screen.getByRole('grid', { name: HOME_RAIL_LIBRARY_TITLE });
+
+			expect(focusedButton).toHaveAttribute('aria-label', 'Game 00');
+			expect(grid.getAttribute('style')).toContain('--library-grid-scroll-row-offset: 0');
+		});
+
+		for (let step = 0; step < 9; step += 1) {
+			const at = 4_400 + step * 400;
+			emitInput(INPUT_ACTIONS.moveDown, { at });
+			emitInput(INPUT_ACTIONS.moveDown, { at: at + 1, phase: INPUT_PHASES.release });
+		}
+
+		await waitFor(() => {
+			const focusedCard = container.querySelector('.library-grid-card.is-focused');
+			const focusedButton = focusedCard?.querySelector('[data-library-grid-card]');
+			const grid = screen.getByRole('grid', { name: HOME_RAIL_LIBRARY_TITLE });
+
+			expect(focusedButton).toHaveAttribute('aria-label', 'Game 45');
+			expect(grid.getAttribute('style')).toContain('--library-grid-scroll-row-offset: 7');
+		});
+
+		emitInput(INPUT_ACTIONS.cancel, { at: 8_200 });
+
+		await waitFor(() => {
+			const grid = screen.getByRole('grid', { name: HOME_RAIL_LIBRARY_TITLE });
+
+			expect(grid).toHaveClass('is-grid-preview');
+			expect(grid.getAttribute('style')).toContain('--library-grid-scroll-row-offset: 0');
+			expect(container.querySelector('.library-grid-card.is-focused')).not.toBeInTheDocument();
+		});
+
+		emitInput(INPUT_ACTIONS.confirm, { at: 8_600 });
+
+		await waitFor(() => {
+			const focusedCard = container.querySelector('.library-grid-card.is-focused');
+			const focusedButton = focusedCard?.querySelector('[data-library-grid-card]');
+			const grid = screen.getByRole('grid', { name: HOME_RAIL_LIBRARY_TITLE });
+
+			expect(focusedButton).toHaveAttribute('aria-label', 'Game 00');
+			expect(grid).toHaveClass('is-grid-focused');
+			expect(grid.getAttribute('style')).toContain('--library-grid-scroll-row-offset: 0');
 		});
 	});
 
@@ -706,6 +993,15 @@ describe('home page', () => {
 			);
 		});
 
+		emitInput(INPUT_ACTIONS.moveRight);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: COVER_OPTIONS_BUTTON_NAME })).toHaveAttribute(
+				'aria-current',
+				'true'
+			);
+		});
+
 		emitInput(INPUT_ACTIONS.cancel);
 
 		await waitFor(() => {
@@ -713,6 +1009,15 @@ describe('home page', () => {
 			expect(
 				screen.getByRole('button', { name: mockGames[0]?.title ?? '' }).closest('.game-card')
 			).toHaveClass('is-active', 'is-focused');
+		});
+
+		emitInput(INPUT_ACTIONS.moveDown);
+
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Play Game' })).toHaveAttribute(
+				'aria-current',
+				'true'
+			);
 		});
 	});
 
@@ -723,6 +1028,14 @@ describe('home page', () => {
 		);
 		const coverActionMenuSource = readFileSync(
 			'C:/Users/Michael/Developer/Projects/nexus/interface/src/lib/components/home/CoverActionMenu.svelte',
+			'utf8'
+		);
+		const libraryGridSource = readFileSync(
+			'C:/Users/Michael/Developer/Projects/nexus/interface/src/lib/components/home/LibraryGrid.svelte',
+			'utf8'
+		);
+		const libraryCardSource = readFileSync(
+			'C:/Users/Michael/Developer/Projects/nexus/interface/src/lib/components/home/LibraryCard.svelte',
 			'utf8'
 		);
 
@@ -738,5 +1051,10 @@ describe('home page', () => {
 		expect(coverPickerSource).toContain('outline: none');
 		expect(coverActionMenuSource).not.toContain(':hover');
 		expect(coverActionMenuSource).not.toContain('onpointerenter');
+		expect(libraryGridSource).not.toContain(':hover');
+		expect(libraryGridSource).not.toContain('onpointerenter');
+		expect(libraryGridSource).toContain('overflow: hidden');
+		expect(libraryCardSource).not.toContain(':hover');
+		expect(libraryCardSource).not.toContain('onpointerenter');
 	});
 });

@@ -63,6 +63,29 @@ describe('createWebGamepadInputAdapter', () => {
 		]);
 	});
 
+	it('dispatches trigger button presses', () => {
+		setButtonPressed(6, true);
+		setButtonPressed(7, true);
+		animationFrames.shift()?.(100);
+
+		expect(events).toEqual([
+			{
+				action: INPUT_ACTIONS.triggerLeft,
+				source: INPUT_SOURCES.webGamepad,
+				at: 1234,
+				repeat: false,
+				phase: INPUT_PHASES.press
+			},
+			{
+				action: INPUT_ACTIONS.triggerRight,
+				source: INPUT_SOURCES.webGamepad,
+				at: 1234,
+				repeat: false,
+				phase: INPUT_PHASES.press
+			}
+		]);
+	});
+
 	function setButtonPressed(index: number, pressed: boolean) {
 		if (!gamepad) return;
 		(gamepad.buttons[index] as { pressed: boolean }).pressed = pressed;
